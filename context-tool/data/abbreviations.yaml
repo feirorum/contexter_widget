@@ -1,0 +1,687 @@
+abbreviations:
+  # AI and Machine Learning
+  - abbr: LLM
+    full: Large Language Model
+    definition: AI models trained on vast amounts of text data to understand and generate human-like text
+    category: AI/ML
+    examples: [GPT-4, Claude, Llama]
+
+  - abbr: ML
+    full: Machine Learning
+    definition: A subset of AI where systems learn from data without explicit programming
+    category: AI/ML
+
+  - abbr: NLP
+    full: Natural Language Processing
+    definition: Field of AI focused on interaction between computers and human language
+    category: AI/ML
+
+  - abbr: GPT
+    full: Generative Pre-trained Transformer
+    definition: Type of neural network architecture for generating text
+    category: AI/ML
+
+  - abbr: RAG
+    full: Retrieval-Augmented Generation
+    definition: AI technique that combines retrieval of relevant documents with text generation
+    category: AI/ML
+
+  # Authentication & Security
+  - abbr: Auth
+    full: Authentication
+    definition: Process of verifying the identity of a user or system
+    category: Security
+    related: [OAuth, JWT, SSO]
+
+  - abbr: OAuth
+    full: Open Authorization
+    definition: Open standard for access delegation, commonly used for token-based authentication
+    category: Security
+
+  - abbr: JWT
+    full: JSON Web Token
+    definition: Compact, URL-safe means of representing claims between two parties
+    category: Security
+
+  - abbr: SSO
+    full: Single Sign-On
+    definition: Authentication scheme allowing users to log in with a single ID across multiple systems
+    category: Security
+
+  - abbr: MFA
+    full: Multi-Factor Authentication
+    definition: Security system requiring multiple methods of authentication
+    category: Security
+
+  - abbr: 2FA
+    full: Two-Factor Authentication
+    definition: Security process requiring two different authentication factors
+    category: Security
+
+  # Web Development
+  - abbr: API
+    full: Application Programming Interface
+    definition: Set of protocols and tools for building software applications
+    category: Development
+
+  - abbr: REST
+    full: Representational State Transfer
+    definition: Architectural style for designing networked applications
+    category: Development
+
+  - abbr: HTTP
+    full: Hypertext Transfer Protocol
+    definition: Foundation of data communication for the World Wide Web
+    category: Networking
+
+  - abbr: HTTPS
+    full: HTTP Secure
+    definition: Extension of HTTP with encryption using SSL/TLS
+    category: Networking
+
+  - abbr: URL
+    full: Uniform Resource Locator
+    definition: Reference to a web resource that specifies its location
+    category: Web
+
+  - abbr: URI
+    full: Uniform Resource Identifier
+    definition: String of characters that identifies a resource
+    category: Web
+
+  - abbr: DNS
+    full: Domain Name System
+    definition: Hierarchical naming system for computers and services connected to the Internet
+    category: Networking
+
+  - abbr: CDN
+    full: Content Delivery Network
+    definition: Geographically distributed network of servers to deliver content efficiently
+    category: Web
+
+  # Databases
+  - abbr: DB
+    full: Database
+    definition: Organized collection of structured information or data
+    category: Database
+
+  - abbr: SQL
+    full: Structured Query Language
+    definition: Language for managing and manipulating relational databases
+    category: Database
+
+  - abbr: NoSQL
+    full: Not Only SQL
+    definition: Database design approach for storing and retrieving non-relational data
+    category: Database
+
+  - abbr: CRUD
+    full: Create, Read, Update, Delete
+    definition: Four basic operations of persistent storage
+    category: Database
+
+  - abbr: ORM
+    full: Object-Relational Mapping
+    definition: Technique for converting data between incompatible type systems
+    category: Database
+
+  # Cloud & DevOps
+  - abbr: AWS
+    full: Amazon Web Services
+    definition: Cloud computing platform by Amazon
+    category: Cloud
+
+  - abbr: CI/CD
+    full: Continuous Integration/Continuous Deployment
+    definition: Method to frequently deliver apps through automation
+    category: DevOps
+
+  - abbr: VM
+    full: Virtual Machine
+    definition: Emulation of a computer system
+    category: Infrastructure
+
+  - abbr: K8s
+    full: Kubernetes
+    definition: Open-source container orchestration platform
+    category: DevOps
+
+  - abbr: Docker
+    full: Docker
+    definition: Platform for developing, shipping, and running applications in containers
+    category: DevOps
+
+  # Programming Concepts
+  - abbr: OOP
+    full: Object-Oriented Programming
+    definition: Programming paradigm based on the concept of objects
+    category: Programming
+
+  - abbr: FP
+    full: Functional Programming
+    definition: Programming paradigm treating computation as evaluation of mathematical functions
+    category: Programming
+
+  - abbr: IDE
+    full: Integrated Development Environment
+    definition: Software application providing comprehensive facilities for software development
+    category: Tools
+
+  - abbr: CLI
+    full: Command-Line Interface
+    definition: Text-based interface for interacting with software
+    category: Tools
+
+  - abbr: GUI
+    full: Graphical User Interface
+    definition: Visual interface allowing users to interact through graphical icons
+    category: Tools
+
+  - abbr: SDK
+    full: Software Development Kit
+    definition: Collection of software development tools in one installable package
+    category: Development
+
+  - abbr: JSON
+    full: JavaScript Object Notation
+    definition: Lightweight data-interchange format
+    category: Data Format
+
+  - abbr: XML
+    full: Extensible Markup Language
+    definition: Markup language for encoding documents in a format readable by both humans and machines
+    category: Data Format
+
+  - abbr: YAML
+    full: YAML Ain't Markup Language
+    definition: Human-readable data serialization language
+    category: Data Format
+
+  # Version Control
+  - abbr: VCS
+    full: Version Control System
+    definition: System for tracking changes to files over time
+    category: Development
+
+  - abbr: Git
+    full: Git
+    definition: Distributed version control system
+    category: Development
+
+  - abbr: PR
+    full: Pull Request
+    definition: Method of submitting contributions to a project
+    category: Development
+
+  - abbr: Repo
+    full: Repository
+    definition: Storage location for software packages
+    category: Development
+
+  # Frontend
+  - abbr: HTML
+    full: HyperText Markup Language
+    definition: Standard markup language for creating web pages
+    category: Frontend
+
+  - abbr: CSS
+    full: Cascading Style Sheets
+    definition: Style sheet language for describing presentation of HTML documents
+    category: Frontend
+
+  - abbr: JS
+    full: JavaScript
+    definition: Programming language for web development
+    category: Frontend
+
+  - abbr: DOM
+    full: Document Object Model
+    definition: Programming interface for HTML and XML documents
+    category: Frontend
+
+  - abbr: SPA
+    full: Single-Page Application
+    definition: Web app that loads a single HTML page and dynamically updates content
+    category: Frontend
+
+  # Operating Systems
+  - abbr: OS
+    full: Operating System
+    definition: System software managing computer hardware and software resources
+    category: Systems
+
+  - abbr: Linux
+    full: Linux
+    definition: Open-source Unix-like operating system
+    category: Systems
+
+  - abbr: WSL
+    full: Windows Subsystem for Linux
+    definition: Compatibility layer for running Linux on Windows
+    category: Systems
+
+  - abbr: bash
+    full: Bourne Again SHell
+    definition: Unix shell and command language
+    category: Systems
+
+  # Networking
+  - abbr: IP
+    full: Internet Protocol
+    definition: Principal communications protocol for routing packets across networks
+    category: Networking
+
+  - abbr: TCP
+    full: Transmission Control Protocol
+    definition: Connection-oriented protocol providing reliable data transmission
+    category: Networking
+
+  - abbr: UDP
+    full: User Datagram Protocol
+    definition: Connectionless protocol for time-sensitive transmissions
+    category: Networking
+
+  - abbr: VPN
+    full: Virtual Private Network
+    definition: Encrypted connection over the Internet from a device to a network
+    category: Networking
+
+  # General Tech
+  - abbr: UI
+    full: User Interface
+    definition: Space where interactions between humans and machines occur
+    category: General
+
+  - abbr: UX
+    full: User Experience
+    definition: Person's emotions and attitudes about using a product or service
+    category: General
+
+  - abbr: MVP
+    full: Minimum Viable Product
+    definition: Product with enough features to attract early adopters
+    category: Product
+
+  - abbr: SaaS
+    full: Software as a Service
+    definition: Software licensing and delivery model where software is centrally hosted
+    category: Business
+
+  - abbr: IaaS
+    full: Infrastructure as a Service
+    definition: Online services providing high-level APIs for accessing infrastructure
+    category: Cloud
+
+  - abbr: PaaS
+    full: Platform as a Service
+    definition: Platform allowing customers to develop, run, and manage applications
+    category: Cloud
+
+  # Business & Communication
+  - abbr: ASAP
+    full: As Soon As Possible
+    definition: Indicating urgency or need for quick action
+    category: Business
+
+  - abbr: FYI
+    full: For Your Information
+    definition: Used to share information without requiring action
+    category: Communication
+
+  - abbr: ETA
+    full: Estimated Time of Arrival
+    definition: Expected time when something will arrive or be completed
+    category: Business
+
+  - abbr: EOD
+    full: End of Day
+    definition: By the end of the business day
+    category: Business
+
+  - abbr: WFH
+    full: Work From Home
+    definition: Working remotely from one's residence
+    category: Business
+
+  - abbr: OOO
+    full: Out of Office
+    definition: Not available at the usual workplace
+    category: Business
+
+  - abbr: TBD
+    full: To Be Determined
+    definition: Not yet decided or finalized
+    category: General
+
+  - abbr: TBA
+    full: To Be Announced
+    definition: Will be announced at a later time
+    category: General
+
+  - abbr: RSVP
+    full: Répondez S'il Vous Plaît
+    definition: Please respond (French phrase commonly used for event invitations)
+    category: Communication
+
+  - abbr: FAQ
+    full: Frequently Asked Questions
+    definition: List of common questions and answers
+    category: Documentation
+
+  - abbr: AKA
+    full: Also Known As
+    definition: An alternative name or alias
+    category: General
+
+  - abbr: CEO
+    full: Chief Executive Officer
+    definition: Highest-ranking executive in a company
+    category: Business
+
+  - abbr: CTO
+    full: Chief Technology Officer
+    definition: Executive responsible for technology and engineering
+    category: Business
+
+  - abbr: CFO
+    full: Chief Financial Officer
+    definition: Executive responsible for financial operations
+    category: Business
+
+  - abbr: COO
+    full: Chief Operating Officer
+    definition: Executive responsible for day-to-day operations
+    category: Business
+
+  - abbr: HR
+    full: Human Resources
+    definition: Department managing employee relations and benefits
+    category: Business
+
+  - abbr: KPI
+    full: Key Performance Indicator
+    definition: Measurable value demonstrating effectiveness
+    category: Business
+
+  - abbr: ROI
+    full: Return on Investment
+    definition: Measure of profitability of an investment
+    category: Business
+
+  - abbr: B2B
+    full: Business-to-Business
+    definition: Commerce transactions between businesses
+    category: Business
+
+  - abbr: B2C
+    full: Business-to-Consumer
+    definition: Commerce transactions between business and end consumers
+    category: Business
+
+  # Development & Testing
+  - abbr: QA
+    full: Quality Assurance
+    definition: Process of ensuring product quality through testing
+    category: Development
+
+  - abbr: UAT
+    full: User Acceptance Testing
+    definition: Final testing phase with actual users before release
+    category: Development
+
+  - abbr: POC
+    full: Proof of Concept
+    definition: Demonstration showing feasibility of an idea
+    category: Development
+
+  - abbr: TDD
+    full: Test-Driven Development
+    definition: Development approach where tests are written before code
+    category: Development
+
+  - abbr: BDD
+    full: Behavior-Driven Development
+    definition: Development approach focusing on system behavior
+    category: Development
+
+  - abbr: DRY
+    full: Don't Repeat Yourself
+    definition: Programming principle to reduce code repetition
+    category: Programming
+
+  - abbr: SOLID
+    full: Single responsibility, Open-closed, Liskov substitution, Interface segregation, Dependency inversion
+    definition: Five design principles for object-oriented programming
+    category: Programming
+
+  - abbr: YAGNI
+    full: You Aren't Gonna Need It
+    definition: Principle to avoid adding functionality until necessary
+    category: Programming
+
+  - abbr: KISS
+    full: Keep It Simple, Stupid
+    definition: Design principle favoring simplicity
+    category: Programming
+
+  # AI & Data Science
+  - abbr: AI
+    full: Artificial Intelligence
+    definition: Computer systems performing tasks requiring human intelligence
+    category: AI/ML
+    links: [https://en.wikipedia.org/wiki/Artificial_intelligence]
+
+  - abbr: DL
+    full: Deep Learning
+    definition: Machine learning using neural networks with multiple layers
+    category: AI/ML
+
+  - abbr: CNN
+    full: Convolutional Neural Network
+    definition: Deep learning architecture commonly used for image processing
+    category: AI/ML
+
+  - abbr: RNN
+    full: Recurrent Neural Network
+    definition: Neural network architecture for sequential data
+    category: AI/ML
+
+  - abbr: GAN
+    full: Generative Adversarial Network
+    definition: AI framework with two competing neural networks
+    category: AI/ML
+
+  - abbr: RL
+    full: Reinforcement Learning
+    definition: Machine learning where agents learn through trial and error
+    category: AI/ML
+
+  - abbr: ETL
+    full: Extract, Transform, Load
+    definition: Process of copying data from sources to a destination
+    category: Data
+
+  - abbr: OLAP
+    full: Online Analytical Processing
+    definition: Computing approach for complex analytical queries
+    category: Database
+
+  - abbr: OLTP
+    full: Online Transaction Processing
+    definition: Database processing for transaction-oriented applications
+    category: Database
+
+  # Protocols & Standards
+  - abbr: FTP
+    full: File Transfer Protocol
+    definition: Network protocol for transferring files
+    category: Networking
+
+  - abbr: SFTP
+    full: SSH File Transfer Protocol
+    definition: Secure file transfer protocol
+    category: Networking
+
+  - abbr: SMTP
+    full: Simple Mail Transfer Protocol
+    definition: Protocol for email transmission
+    category: Networking
+
+  - abbr: IMAP
+    full: Internet Message Access Protocol
+    definition: Protocol for email retrieval
+    category: Networking
+
+  - abbr: POP3
+    full: Post Office Protocol 3
+    definition: Protocol for retrieving email from a server
+    category: Networking
+
+  - abbr: CORS
+    full: Cross-Origin Resource Sharing
+    definition: Mechanism allowing restricted resources to be requested from another domain
+    category: Web
+
+  - abbr: AJAX
+    full: Asynchronous JavaScript and XML
+    definition: Technique for creating interactive web applications
+    category: Web
+
+  - abbr: WebRTC
+    full: Web Real-Time Communication
+    definition: Technology enabling peer-to-peer communication in browsers
+    category: Web
+
+  - abbr: gRPC
+    full: gRPC Remote Procedure Call
+    definition: High-performance RPC framework by Google
+    category: Development
+
+  - abbr: GraphQL
+    full: Graph Query Language
+    definition: Query language for APIs developed by Facebook
+    category: Development
+    links: [https://graphql.org]
+
+  # File Formats & Standards
+  - abbr: PDF
+    full: Portable Document Format
+    definition: File format for presenting documents independently of software
+    category: Data Format
+
+  - abbr: CSV
+    full: Comma-Separated Values
+    definition: Plain text format for tabular data
+    category: Data Format
+
+  - abbr: SVG
+    full: Scalable Vector Graphics
+    definition: XML-based vector image format
+    category: Data Format
+
+  - abbr: JPEG
+    full: Joint Photographic Experts Group
+    definition: Commonly used lossy compression for digital images
+    category: Data Format
+
+  - abbr: PNG
+    full: Portable Network Graphics
+    definition: Raster graphics file format supporting lossless compression
+    category: Data Format
+
+  - abbr: GIF
+    full: Graphics Interchange Format
+    definition: Bitmap image format supporting animation
+    category: Data Format
+
+  - abbr: MP4
+    full: MPEG-4 Part 14
+    definition: Digital multimedia container format
+    category: Data Format
+
+  - abbr: ASCII
+    full: American Standard Code for Information Interchange
+    definition: Character encoding standard for electronic communication
+    category: Data Format
+
+  - abbr: UTF-8
+    full: Unicode Transformation Format - 8-bit
+    definition: Variable-width character encoding for Unicode
+    category: Data Format
+
+  # Mobile & Platforms
+  - abbr: iOS
+    full: iPhone Operating System
+    definition: Mobile operating system by Apple
+    category: Systems
+
+  - abbr: APK
+    full: Android Package Kit
+    definition: Package file format for Android applications
+    category: Mobile
+
+  - abbr: SDK
+    full: Software Development Kit
+    definition: Collection of tools for developing software
+    category: Development
+
+  - abbr: PWA
+    full: Progressive Web App
+    definition: Web application using modern capabilities to deliver app-like experience
+    category: Web
+
+  # Miscellaneous Tech
+  - abbr: IoT
+    full: Internet of Things
+    definition: Network of physical devices connected to the internet
+    category: General
+
+  - abbr: AR
+    full: Augmented Reality
+    definition: Technology overlaying digital content on real world
+    category: General
+
+  - abbr: VR
+    full: Virtual Reality
+    definition: Simulated experience using computer technology
+    category: General
+
+  - abbr: CMS
+    full: Content Management System
+    definition: Software for creating and managing digital content
+    category: Web
+
+  - abbr: ERP
+    full: Enterprise Resource Planning
+    definition: Integrated management of business processes
+    category: Business
+
+  - abbr: CRM
+    full: Customer Relationship Management
+    definition: System for managing customer interactions and data
+    category: Business
+
+  - abbr: GDPR
+    full: General Data Protection Regulation
+    definition: EU regulation on data protection and privacy
+    category: Security
+
+  - abbr: HIPAA
+    full: Health Insurance Portability and Accountability Act
+    definition: US law for protecting sensitive patient health information
+    category: Security
+
+  - abbr: SAML
+    full: Security Assertion Markup Language
+    definition: Open standard for exchanging authentication data
+    category: Security
+
+  - abbr: LDAP
+    full: Lightweight Directory Access Protocol
+    definition: Protocol for accessing and maintaining directory services
+    category: Networking
+
+  - abbr: WYSIWYG
+    full: What You See Is What You Get
+    definition: Editor allowing direct manipulation of document layout
+    category: Tools

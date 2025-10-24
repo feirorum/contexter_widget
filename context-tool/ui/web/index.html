@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Tool - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 16px;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .demo-text {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            line-height: 1.8;
+            cursor: text;
+            user-select: text;
+        }
+
+        .demo-text p {
+            margin-bottom: 16px;
+        }
+
+        .demo-text::selection {
+            background: #667eea;
+            color: white;
+        }
+
+        .highlight {
+            background: #ffd700;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .context-display {
+            margin-top: 20px;
+        }
+
+        .context-section {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .context-section h3 {
+            color: #667eea;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .context-content {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+            margin: 4px;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #5568d3;
+        }
+
+        .match-item {
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .match-item strong {
+            color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .insight {
+            padding: 12px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel: Demo Text -->
+        <div class="panel">
+            <h1>Context Tool Demo</h1>
+
+            <div class="stats" id="stats">
+                <div class="stat-card">
+                    <div class="number">-</div>
+                    <div class="label">Contacts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">-</div>
+                    <div class="label">Snippets</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">-</div>
+                    <div class="label">Projects</div>
+                </div>
+            </div>
+
+            <h2>Select any text below:</h2>
+
+            <div class="demo-text" id="demoText">
+                <p>
+                    <strong>Sarah Mitchell</strong> from the Auth Team reached out about
+                    <span class="highlight">JT-344</span> yesterday. She mentioned the login timeout
+                    issues are still occurring despite the certificate update.
+                </p>
+
+                <p>
+                    I'm meeting with her tomorrow at 2pm to discuss the
+                    <strong>Authentication System Redesign</strong> project. The whole
+                    <span class="highlight">JT-3xx</span> series is related to this overhaul.
+                </p>
+
+                <p>
+                    Also met <strong>Magnus Sjöstrand</strong> today - we discussed his upcoming
+                    Europe trip. Interesting guy!
+                </p>
+
+                <p>
+                    <strong>Stefan K</strong> showed me his <strong>TerminAI</strong> project -
+                    a Linux LLM interface using Ollama. Check it out at
+                    https://github.com/sefn/terminai
+                </p>
+
+                <p>
+                    Need to follow up with sarah.m@company.com about the JT-346 and JT-348
+                    tickets as well. The token refresh issue is still unresolved.
+                </p>
+
+                <p>
+                    For quick testing and demo purposes, try the following:
+                    our <span class="highlight">LLM</span> prototype can summarize tickets via an
+                    <span class="highlight">API</span> that uses <span class="highlight">OAuth</span>
+                    and issues <span class="highlight">JWT</span> tokens; please enable
+                    <span class="highlight">MFA</span> in staging. Team members who are
+                    <span class="highlight">WFH</span> should RSVP <span class="highlight">ASAP</span>
+                    so we can grant access before EOD.
+                </p>
+            </div>
+
+            <div style="margin-top: 20px; padding: 16px; background: #e3f2fd; border-radius: 8px;">
+                <strong>💡 Try selecting:</strong>
+                <ul style="margin-left: 20px; margin-top: 8px; line-height: 2;">
+                    <li>A person's name (e.g., "Sarah Mitchell")</li>
+                    <li>A Jira ticket (e.g., "JT-344")</li>
+                    <li>A project name (e.g., "TerminAI")</li>
+                    <li>An email address</li>
+                    <li>A URL</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Right Panel: Context Display -->
+        <div class="panel">
+            <h1>Context & Analysis</h1>
+
+            <div id="contextDisplay">
+                <div class="empty-state">
+                    👆 Select some text on the left to see contextual information
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
+

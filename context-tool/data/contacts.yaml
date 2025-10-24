@@ -1,0 +1,18 @@
+contacts:
+  - name: Sarah Mitchell
+    email: sarah.m@company.com
+    role: Auth Team Lead
+    last_contact: 3 days ago via Slack about JT-344
+    next_event: Meeting tomorrow 2pm
+    tags: [teammate, auth, technical-lead]
+    expertise: [OAuth, JWT, mobile auth]
+
+  - name: Magnus Sjöstrand
+    context: Met today, discussed Europe trip
+    tags: [new-contact, travel, europe]
+
+  - name: Stefan K
+    github: https://github.com/sefn/terminai
+    interests: [LLM, Linux, OS, desktop-interfaces]
+    project: TerminAI - Linux LLM interface
+    tags: [developer, llm-interfaces, linux]

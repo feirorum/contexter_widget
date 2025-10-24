@@ -1,0 +1,10 @@
+# Save Log Example
+
+This file shows example entries from the saves.log file.
+Each line is a JSON object recording a save action.
+
+{"timestamp": "2024-01-15 14:30:22", "type": "person", "file": "people/john-doe.md", "reason": "Email address detected: 'john@example.com'", "text_preview": "john@example.com John Doe is a software engineer..."}
+{"timestamp": "2024-01-15 14:32:15", "type": "snippet", "file": "snippets/2024-01-15-discussed-auth.md", "reason": "Default save as snippet", "text_preview": "Discussed auth implementation with Sarah. Need to use RS256 for JWT..."}
+{"timestamp": "2024-01-15 14:35:08", "type": "person", "file": "people/sarah-mitchell.md", "reason": "Found name pattern: 'Sarah Mitchell' (full match)", "text_preview": "Sarah Mitchell"}
+{"timestamp": "2024-01-15 14:40:33", "type": "abbreviation", "file": "abbreviations/custom/api.md", "reason": "Uppercase acronym pattern: 'API'", "text_preview": "API"}
+{"timestamp": "2024-01-15 15:12:45", "type": "snippet", "file": "snippets/2024-01-15-meeting-notes-151245.md", "reason": "Default save as snippet", "text_preview": "Meeting notes from standup:\n- Sprint is on track\n- Need to review PR #45..."}

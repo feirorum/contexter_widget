@@ -1,0 +1,18 @@
+snippets:
+  - id: 1
+    text: "JT-344: Login timeout issues"
+    tags: [JT-344, auth, timeout]
+    saved_date: 3 days ago
+    linked_contacts: [Sarah Mitchell]
+
+  - id: 2
+    text: "JT-3xx series all related to auth system overhaul"
+    tags: [auth, project-planning, jira]
+    saved_date: last week
+
+  - id: 3
+    text: "I tried to fix JT-344 with a new cert but it didn't fix the problem"
+    tags: [JT-344, troubleshooting, certificates, auth-issues]
+    saved_date: just saved
+    linked_contacts: [Sarah Mitchell]
+    linked_projects: [Authentication System]

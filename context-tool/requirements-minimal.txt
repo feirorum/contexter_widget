@@ -1,0 +1,16 @@
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.4.0
+pyyaml>=6.0.1
+pyperclip>=1.8.2
+pytest>=7.4.0
+
+# Optional native UI dependency: Tkinter
+# Tkinter is part of the Python standard library but may require an OS package
+# to be installed on some platforms (not available via pip):
+#   - Debian/Ubuntu: sudo apt install python3-tk
+#   - Fedora: sudo dnf install python3-tkinter
+#   - Arch: sudo pacman -S tk
+#   - macOS: usually included with the official Python installer
+# If you prefer a pip-installable GUI toolkit, consider adding PyQt6:
+# PyQt6>=6.6.0

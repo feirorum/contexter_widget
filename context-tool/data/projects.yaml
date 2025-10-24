@@ -1,0 +1,12 @@
+projects:
+  - name: Authentication System Redesign
+    status: In Progress
+    tickets: [JT-344, JT-346, JT-348]
+    team_lead: Sarah Mitchell
+    issues: [Certificate problems, Login timeouts, Token refresh]
+
+  - name: TerminAI
+    type: Linux LLM interface
+    creator: Stefan K
+    repository: https://github.com/sefn/terminai
+    keywords: [ollama, deno, glow, wofi, keyboard-driven]
