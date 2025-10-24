@@ -3,6 +3,7 @@
     "allow": [
       "Bash(mkdir:*)",
       "Bash(touch:*)",
+      "Bash(grep:*)",
       "Bash(python3:*)",
       "Bash(./venv/bin/pip install:*)",
       "Bash(./venv/bin/python3:*)"

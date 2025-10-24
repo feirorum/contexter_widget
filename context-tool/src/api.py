@@ -9,7 +9,7 @@ import sqlite3
 from pathlib import Path
 
 from .database import get_database
-from .data_loader import load_data
+from .data_loaders import load_data
 from .pattern_matcher import PatternMatcher
 from .action_suggester import ActionSuggester
 from .context_analyzer import ContextAnalyzer
@@ -114,11 +114,14 @@ def initialize_app(
     db = database.connection
 
     # Load data from YAML or Markdown
+    print(f"📁 Data format: {'Markdown' if use_markdown else 'YAML'}")
+    print(f"📁 Data directory: {Path(data_dir).absolute()}")
+
+    # Load data using unified interface
     if use_markdown:
-        from .markdown_loader import load_markdown_data
-        load_markdown_data(db, data_dir)
+        load_data(db, data_dir, format='markdown')
     else:
-        load_data(db, data_dir)
+        load_data(db, data_dir, format='yaml')
 
     # Initialize components
     pattern_matcher = PatternMatcher()

@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.database import get_database
-from src.data_loader import load_data
+from src.data_loaders import load_data
 from src.pattern_matcher import PatternMatcher
 from src.action_suggester import ActionSuggester
 from src.context_analyzer import ContextAnalyzer

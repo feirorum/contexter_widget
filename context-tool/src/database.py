@@ -19,8 +19,16 @@ class Database:
         self.connection = None
 
     def connect(self) -> sqlite3.Connection:
-        """Connect to database and enable row factory"""
-        self.connection = sqlite3.connect(self.db_path)
+        """
+        Connect to database and enable row factory
+
+        Uses check_same_thread=False to allow connection sharing across threads.
+        This is safe for read-only operations (like analysis in monitoring threads).
+        """
+        self.connection = sqlite3.connect(
+            self.db_path,
+            check_same_thread=False  # Allow cross-thread access for reads
+        )
         self.connection.row_factory = sqlite3.Row
         return self.connection
 

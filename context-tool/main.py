@@ -102,6 +102,14 @@ def main():
 
     args = parser.parse_args()
 
+    # Auto-select config file for markdown mode
+    if args.markdown and args.config == 'config.yaml':
+        # If markdown flag is set and no custom config, use markdown config
+        config_markdown = Path('config-markdown.yaml')
+        if config_markdown.exists():
+            args.config = 'config-markdown.yaml'
+            print(f"📄 Auto-selected markdown config: {args.config}")
+
     # Load configuration
     config_path = Path(args.config)
     config = load_config(config_path)
@@ -126,18 +134,19 @@ def main():
     port = config['ui']['port']
     mode = config['app']['mode']
 
-    print(f"Starting Context Tool in {mode} mode...")
-    print(f"Data directory: {data_dir}")
-    print(f"Database: {db_path}")
-    print(f"Semantic search: {'enabled' if enable_semantic else 'disabled'}")
-
-    # Determine data format and directory
+    # Determine data format
     use_markdown = args.markdown
-    if use_markdown and not data_dir.name.endswith('-md'):
-        # If markdown flag is set but data_dir is default, switch to data-md
-        if str(data_dir) == './data':
-            data_dir = Path('./data-md')
-            print(f"Using markdown data directory: {data_dir}")
+
+    # Auto-switch data directory for markdown mode if still using default
+    if use_markdown and str(data_dir) == './data':
+        data_dir = Path('./data-md')
+        print(f"📁 Auto-switched to markdown data directory: {data_dir}")
+
+    print(f"\nStarting Context Tool in {mode} mode...")
+    print(f"📁 Data directory: {data_dir}")
+    print(f"📁 Data format: {'Markdown' if use_markdown else 'YAML'}")
+    print(f"💾 Database: {db_path}")
+    print(f"🔍 Semantic search: {'enabled' if enable_semantic else 'disabled'}")
 
     # Initialize the application
     try:

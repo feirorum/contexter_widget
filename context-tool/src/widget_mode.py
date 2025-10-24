@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 
 from .database import get_database
-from .data_loader import load_data
+from .data_loaders import load_data
 from .pattern_matcher import PatternMatcher
 from .action_suggester import ActionSuggester
 from .context_analyzer import ContextAnalyzer
@@ -80,12 +80,13 @@ class WidgetMode:
         self.db = db_instance.connection
 
         # Load data
-        print(f"Loading data from {self.data_dir}...")
+        print(f"📁 Data format: {'Markdown' if self.use_markdown else 'YAML'}")
+        print(f"📁 Data directory: {self.data_dir.absolute()}")
+
         if self.use_markdown:
-            from .markdown_loader import load_markdown_data
-            load_markdown_data(self.db, self.data_dir)
+            load_data(self.db, self.data_dir, format='markdown')
         else:
-            load_data(self.db, self.data_dir)
+            load_data(self.db, self.data_dir, format='yaml')
 
         # Initialize components
         pattern_matcher = PatternMatcher()
@@ -118,16 +119,6 @@ class WidgetMode:
         """Check clipboard for changes and analyze"""
         try:
             import pyperclip
-            import sqlite3
-            
-            # Create thread-local database connection
-            thread_db = get_database(self.db_path).connection
-            thread_analyzer = ContextAnalyzer(
-                db=thread_db,
-                pattern_matcher=self.analyzer.pattern_matcher,
-                action_suggester=self.analyzer.action_suggester,
-                semantic_searcher=None  # Semantic search disabled in monitoring thread
-            )
 
             current_clipboard = pyperclip.paste()
 
@@ -139,8 +130,12 @@ class WidgetMode:
 
                 print(f"\n📋 Clipboard changed: {current_clipboard[:50]}...")
 
-                # Analyze the text using thread-local analyzer
-                result = thread_analyzer.analyze(current_clipboard.strip())
+                # Analyze using the shared analyzer from main thread
+                # Safe because:
+                # 1. Database uses check_same_thread=False (allows cross-thread reads)
+                # 2. Monitoring thread only READS (analyze), never writes
+                # 3. SQLite handles concurrent reads safely
+                result = self.analyzer.analyze(current_clipboard.strip())
 
                 # Show in widget (must be done in main thread)
                 self.widget.root.after(0, lambda: self.widget.show(result))

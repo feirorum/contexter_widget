@@ -621,8 +621,15 @@ class ContextWidget:
             if text:
                 # Check if on_save_snippet is the smart saver (has get_save_choices method)
                 if hasattr(self.on_save_snippet, 'get_save_choices'):
-                    # Show choice dialog
-                    self._show_save_choice_dialog(text)
+                    # Get save choices
+                    choices = self.on_save_snippet.get_save_choices(text)
+
+                    # If only snippet choice (no special pattern), save directly without dialog
+                    if len(choices) == 1 and choices[0]['type'] == 'snippet':
+                        self._perform_save(text, 'snippet')
+                    else:
+                        # Multiple choices or special pattern detected - show dialog
+                        self._show_save_choice_dialog(text)
                 else:
                     # Simple callback
                     self.on_save_snippet(text)

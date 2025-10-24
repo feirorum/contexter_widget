@@ -256,11 +256,21 @@ The Context Tool now supports **Obsidian-compatible markdown files** as an alter
 ### Using Markdown Files
 
 ```bash
-# Use markdown data format
+# Use markdown data format (automatically uses config-markdown.yaml)
 ./venv/bin/python3 main.py --mode widget --no-semantic --markdown
 
-# The --markdown flag automatically uses data-md/ directory
+# The --markdown flag automatically:
+# 1. Selects config-markdown.yaml (if exists)
+# 2. Uses data-md/ directory
+# 3. Saves to data-md/saves.log
 ```
+
+### Configuration Files
+
+- **config.yaml** - Default config for YAML mode (uses `data/` directory)
+- **config-markdown.yaml** - Config for Markdown mode (uses `data-md/` directory)
+
+When you use `--markdown` flag, the app automatically selects `config-markdown.yaml`.
 
 ### Why Markdown?
 
@@ -369,3 +379,126 @@ See `data-md/README.md` for detailed format documentation and examples.
 - The minimal requirements file skips heavy ML dependencies
 - Widget mode requires `tkinter` (usually included with Python) and `pyperclip`
 - Both YAML (`data/`) and Markdown (`data-md/`) formats are supported
+
+## Code Organization
+
+### Data Loaders (Refactored)
+
+All data loaders are now in `src/data_loaders/`:
+
+```python
+from src.data_loaders import load_data
+
+# Load YAML data
+load_data(db, Path('./data'), format='yaml')
+
+# Load Markdown data
+load_data(db, Path('./data-md'), format='markdown')
+```
+
+Classes:
+- `YAMLDataLoader` - Loads YAML files from `data/`
+- `MarkdownDataLoader` - Loads Markdown files from `data-md/`
+
+See `REFACTORING.md` for details on the refactoring.
+
+### Bug Fixes
+
+**Widget Mode Matching Issue (FIXED)** - Widget mode clipboard monitoring was creating new database connections, resulting in empty `:memory:` databases with no data. Now reuses the same analyzer for all threads. See `BUGFIX_WIDGET_MATCHING.md` for details.
+
+### SQLite Threading Best Practices
+
+**IMPORTANT:** SQLite has threading restrictions that must be handled properly.
+
+#### The Problem
+
+By default, SQLite doesn't allow using connections across threads:
+```python
+# Main thread
+db = get_database(':memory:')
+analyzer = ContextAnalyzer(db.connection, ...)
+
+# Monitoring thread (WILL FAIL!)
+result = analyzer.analyze(text)  # Error: SQLite objects created in a thread...
+```
+
+#### The Solution
+
+We use `check_same_thread=False` in the database connection:
+
+```python
+# src/database.py
+self.connection = sqlite3.connect(
+    self.db_path,
+    check_same_thread=False  # Allow cross-thread access
+)
+```
+
+#### When This Is Safe
+
+✅ **READ-ONLY operations from background threads**
+- Widget mode monitoring thread only reads (analyze)
+- No writes happen in background threads
+- SQLite handles concurrent reads safely
+
+❌ **NOT safe for writes from multiple threads**
+- Don't write to database from background threads
+- Use a queue or main thread for writes
+
+#### Pattern Used in Widget Mode
+
+```python
+# Main thread: Initialize once
+self.db = get_database(db_path)  # Uses check_same_thread=False
+self.analyzer = ContextAnalyzer(self.db, ...)
+
+# Monitoring thread: Read-only operations
+def check_clipboard(self):
+    # Safe: Only reading via analyze()
+    result = self.analyzer.analyze(text)
+
+    # Safe: UI update via main thread
+    self.widget.root.after(0, lambda: self.widget.show(result))
+```
+
+#### Alternative Approaches
+
+If you need writes from threads:
+
+1. **Thread-local connections** (each thread gets own connection)
+   - Use file-based DB: `context.db`
+   - Each thread creates its own connection
+   - Handles concurrent writes with locking
+
+2. **Queue pattern** (recommended for writes)
+   ```python
+   # Background thread
+   write_queue.put(('save_snippet', text))
+
+   # Main thread
+   while True:
+       operation, data = write_queue.get()
+       db.execute(...)  # Write in main thread
+   ```
+
+#### What NOT to Do
+
+❌ **Don't create new `:memory:` connections in threads**
+```python
+# Each :memory: connection is a separate empty database!
+thread_db = sqlite3.connect(':memory:')  # EMPTY DB!
+```
+
+❌ **Don't write from multiple threads without locking**
+```python
+# Background thread writing directly (NOT SAFE)
+db.execute("INSERT INTO ...")  # Race conditions!
+```
+
+#### Summary
+
+- ✅ `check_same_thread=False` for cross-thread reads
+- ✅ Widget monitoring thread only reads (analyze)
+- ✅ UI updates via `root.after()` in main thread
+- ❌ No writes from background threads
+- ❌ No new `:memory:` connections in threads

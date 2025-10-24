@@ -39,6 +39,9 @@ class EntitySaver:
 
         self._ensure_directories()
 
+        # Log where saves will be recorded
+        print(f"💾 Saves will be logged to: {self.log_file.absolute()}")
+
     def _ensure_directories(self):
         """Create necessary directories if they don't exist"""
         self.people_dir.mkdir(parents=True, exist_ok=True)
