@@ -1,0 +1,30 @@
+app:
+  name: Context Tool
+  mode: demo  # demo, system, or widget
+
+database:
+  type: sqlite
+  path: ":memory:"  # or path to file like "context_tool.db"
+
+data:
+  directory: ./data-md  # Markdown data directory (Obsidian-compatible)
+  auto_load: true
+  format: markdown  # Use markdown files instead of YAML
+
+semantic_search:
+  enabled: true
+  model: all-MiniLM-L6-v2
+  similarity_threshold: 0.5
+
+monitoring:
+  demo:
+    enabled: true
+  system:
+    enabled: false
+    clipboard: true
+    hotkey: "ctrl+shift+space"
+
+ui:
+  type: web  # web or desktop
+  port: 8000
+  host: localhost

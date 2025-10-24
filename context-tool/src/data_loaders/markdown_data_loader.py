@@ -5,10 +5,11 @@ import sqlite3
 import json
 from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional
+from datetime import date, datetime
 import yaml
 
 
-class MarkdownLoader:
+class MarkdownDataLoader:
     """
     Load markdown files with YAML frontmatter into SQLite database
 
@@ -29,6 +30,25 @@ class MarkdownLoader:
         self.db = db_connection
         self.wikilinks_to_resolve = []  # (from_type, from_id, wikilink_text)
 
+    def _serialize_value(self, value: Any) -> Any:
+        """
+        Convert values to JSON-serializable format
+
+        Args:
+            value: Value to convert
+
+        Returns:
+            JSON-serializable value
+        """
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        elif isinstance(value, dict):
+            return {k: self._serialize_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [self._serialize_value(v) for v in value]
+        else:
+            return value
+
     def load_from_markdown(self, data_dir: Path):
         """
         Load all markdown files into SQLite database
@@ -38,7 +58,12 @@ class MarkdownLoader:
         """
         data_dir = Path(data_dir)
 
-        print(f"Loading markdown files from {data_dir}...")
+        print(f"📁 Loading markdown files from: {data_dir.absolute()}")
+
+        # Check if directory exists
+        if not data_dir.exists():
+            print(f"⚠️  WARNING: Directory {data_dir} does not exist!")
+            return
 
         # Load each type
         people_count = self._load_people(data_dir / "people")
@@ -51,12 +76,23 @@ class MarkdownLoader:
 
         self.db.commit()
 
-        print(f"\n📊 Summary:")
+        print(f"\n📊 Markdown Data Loaded:")
         print(f"  - {people_count} people")
         print(f"  - {snippets_count} snippets")
         print(f"  - {projects_count} projects")
         print(f"  - {abbreviations_count} abbreviations")
         print(f"  - {relationships_count} relationships")
+
+        # Show some examples of what was loaded
+        if abbreviations_count > 0:
+            cursor = self.db.execute("SELECT abbr FROM abbreviations LIMIT 3")
+            abbrs = [row['abbr'] for row in cursor.fetchall()]
+            print(f"  - Sample abbreviations: {', '.join(abbrs)}")
+
+        if people_count > 0:
+            cursor = self.db.execute("SELECT name FROM contacts LIMIT 3")
+            names = [row['name'] for row in cursor.fetchall()]
+            print(f"  - Sample people: {', '.join(names)}")
 
     def parse_markdown_file(self, filepath: Path) -> Tuple[Dict[str, Any], str]:
         """
@@ -158,8 +194,8 @@ class MarkdownLoader:
                 body[:200] if body else None,  # First 200 chars as context
                 last_contact,
                 next_event,
-                json.dumps(tags),
-                json.dumps(metadata_fields)
+                json.dumps(self._serialize_value(tags)),
+                json.dumps(self._serialize_value(metadata_fields))
             ))
 
             person_id = cursor.lastrowid
@@ -208,9 +244,9 @@ class MarkdownLoader:
             """, (
                 body,
                 str(saved_date) if saved_date else None,
-                json.dumps(tags),
+                json.dumps(self._serialize_value(tags)),
                 source,
-                json.dumps(metadata_fields)
+                json.dumps(self._serialize_value(metadata_fields))
             ))
 
             snippet_id = cursor.lastrowid
@@ -258,8 +294,8 @@ class MarkdownLoader:
                 name,
                 status,
                 description,
-                json.dumps(tags),
-                json.dumps(metadata_fields)
+                json.dumps(self._serialize_value(tags)),
+                json.dumps(self._serialize_value(metadata_fields))
             ))
 
             project_id = cursor.lastrowid
@@ -323,10 +359,10 @@ class MarkdownLoader:
                 full,
                 definition,
                 category,
-                json.dumps(examples),
-                json.dumps(related),
-                json.dumps(links),
-                json.dumps(metadata_fields)
+                json.dumps(self._serialize_value(examples)),
+                json.dumps(self._serialize_value(related)),
+                json.dumps(self._serialize_value(links)),
+                json.dumps(self._serialize_value(metadata_fields))
             ))
 
             abbr_id = cursor.lastrowid
@@ -423,5 +459,5 @@ def load_markdown_data(db_connection: sqlite3.Connection, data_dir: Path):
         db_connection: Active SQLite database connection
         data_dir: Directory containing markdown subdirectories
     """
-    loader = MarkdownLoader(db_connection)
+    loader = MarkdownDataLoader(db_connection)
     loader.load_from_markdown(data_dir)

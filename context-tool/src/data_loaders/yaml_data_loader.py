@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, Dict, List, Any
 
 
-class DataLoader:
+class YAMLDataLoader:
     """Load YAML data files into SQLite database"""
 
     def __init__(self, db_connection: sqlite3.Connection):
@@ -281,7 +281,7 @@ class DataLoader:
         print(f"Built {count} relationships")
 
 
-def load_data(db_connection: sqlite3.Connection, data_dir: Path):
+def load_yaml_data(db_connection: sqlite3.Connection, data_dir: Path):
     """
     Convenience function to load all YAML data
 
@@ -289,5 +289,5 @@ def load_data(db_connection: sqlite3.Connection, data_dir: Path):
         db_connection: Active SQLite database connection
         data_dir: Directory containing YAML data files
     """
-    loader = DataLoader(db_connection)
+    loader = YAMLDataLoader(db_connection)
     loader.load_from_yaml(data_dir)
