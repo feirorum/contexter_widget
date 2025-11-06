@@ -107,20 +107,8 @@ class ActionSuggester:
                 # Could add project-specific actions here
                 pass
 
-        # Universal actions
-        actions.append({
-            'label': 'Save as snippet',
-            'type': 'action',
-            'value': 'save_snippet',
-            'icon': 'save'
-        })
-
-        actions.append({
-            'label': 'Search Google',
-            'type': 'url',
-            'value': f'https://www.google.com/search?q={text}',
-            'icon': 'search'
-        })
+        # Universal actions removed - now handled by static buttons in UI
+        # (Search Web and Save Snippet buttons are always visible)
 
         # Remove duplicates based on label
         seen_labels = set()

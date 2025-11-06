@@ -6,7 +6,13 @@
       "Bash(grep:*)",
       "Bash(python3:*)",
       "Bash(./venv/bin/pip install:*)",
-      "Bash(./venv/bin/python3:*)"
+      "Bash(./venv/bin/python3:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)",
+      "Bash(timeout 10 ./venv/bin/python3:*)",
+      "Bash(timeout 5 ./venv/bin/python3:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

@@ -32,10 +32,13 @@ class SemanticSearcher:
     def initialize(self):
         """Initialize the model and load embeddings (lazy loading)"""
         if self.model is None:
-            print(f"Loading semantic model: {self.model_name}...")
+            print(f"\n🧠 Initializing semantic search...")
+            print(f"   Model: {self.model_name}")
+            print(f"   This may take a moment on first run (downloading model ~80MB)...")
             self.model = SentenceTransformer(self.model_name)
+            print(f"   ✓ Model loaded successfully")
             self._load_embeddings()
-            print(f"Loaded {len(self.embeddings)} embeddings")
+            print(f"   ✓ Loaded {len(self.embeddings)} existing embeddings from database")
 
     def _load_embeddings(self):
         """Load pre-computed embeddings from database"""
@@ -65,8 +68,21 @@ class SemanticSearcher:
         if self.model is None:
             self.initialize()
 
+        print(f"\n📊 Generating embeddings for semantic search...")
+
         # Clear existing embeddings
         self.db.execute("DELETE FROM embeddings")
+
+        # Count total items to process
+        counts = {}
+        for entity_type, table in [('contacts', 'contacts'), ('snippets', 'snippets'), ('projects', 'projects')]:
+            cursor = self.db.execute(f"SELECT COUNT(*) FROM {table}")
+            counts[entity_type] = cursor.fetchone()[0]
+
+        total_items = sum(counts.values())
+        print(f"   Processing {total_items} items ({counts['contacts']} contacts, {counts['snippets']} snippets, {counts['projects']} projects)...")
+
+        processed = 0
 
         # Generate embeddings for contacts
         cursor = self.db.execute("SELECT id, name, role, context FROM contacts")
@@ -83,12 +99,14 @@ class SemanticSearcher:
             text = ' '.join(text_parts)
             if text.strip():
                 self._store_embedding('contact', row['id'], text)
+                processed += 1
 
         # Generate embeddings for snippets
         cursor = self.db.execute("SELECT id, text FROM snippets")
         for row in cursor.fetchall():
             if row['text']:
                 self._store_embedding('snippet', row['id'], row['text'])
+                processed += 1
 
         # Generate embeddings for projects
         cursor = self.db.execute("SELECT id, name, description FROM projects")
@@ -102,13 +120,15 @@ class SemanticSearcher:
             text = ' '.join(text_parts)
             if text.strip():
                 self._store_embedding('project', row['id'], text)
+                processed += 1
 
         self.db.commit()
 
         # Reload embeddings into memory
         self._load_embeddings()
 
-        print(f"Generated {len(self.embeddings)} embeddings")
+        print(f"   ✓ Generated {len(self.embeddings)} embeddings (384-dimensional vectors)")
+        print(f"   ✓ Semantic search ready!")
 
     def _store_embedding(self, entity_type: str, entity_id: int, text: str):
         """Generate and store embedding for an entity"""

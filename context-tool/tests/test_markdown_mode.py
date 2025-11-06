@@ -94,15 +94,15 @@ def test_llm_abbreviation_match(db):
         assert False, "Context analyzer failed to find LLM"
 
 
-def test_magnus_contact_match(db):
-    """Test that 'Magnus' matches the contact"""
-    print("\nTesting Magnus contact match...")
+def test_stefan_contact_match(db):
+    """Test that 'Stefan' matches the contact (name from header, not filename)"""
+    print("\nTesting Stefan contact match...")
 
     # Direct SQL check
     cursor = db.connection.execute("""
         SELECT name, email FROM contacts
         WHERE LOWER(name) LIKE LOWER(?)
-    """, ("%magnus%",))
+    """, ("%stefan%",))
 
     row = cursor.fetchone()
     if row:
@@ -113,14 +113,14 @@ def test_magnus_contact_match(db):
         cursor = db.connection.execute("SELECT name FROM contacts")
         all_contacts = [r['name'] for r in cursor.fetchall()]
         print(f"  Available contacts: {', '.join(all_contacts)}")
-        assert False, "Magnus contact not found"
+        assert False, "Stefan contact not found"
 
     # Test via context analyzer
     matcher = PatternMatcher()
     suggester = ActionSuggester()
     analyzer = ContextAnalyzer(db.connection, matcher, suggester, None)
 
-    result = analyzer.analyze("Magnus")
+    result = analyzer.analyze("Stefan")
 
     exact_matches = result.get('exact_matches', [])
     contact_matches = [m for m in exact_matches if m['type'] == 'contact']
@@ -128,10 +128,11 @@ def test_magnus_contact_match(db):
     if contact_matches:
         contact = contact_matches[0]['data']
         print(f"  ✓ Context analyzer found: {contact['name']}")
+        assert contact['name'] == "Stefan Krona", f"Expected 'Stefan Krona', got '{contact['name']}'"
     else:
         print("  ✗ Context analyzer did NOT find contact")
         print(f"  Exact matches: {exact_matches}")
-        assert False, "Context analyzer failed to find Magnus"
+        assert False, "Context analyzer failed to find Stefan"
 
 
 def test_case_insensitive_matching(db):
@@ -170,8 +171,8 @@ def main():
         # Test 2: Test LLM abbreviation
         test_llm_abbreviation_match(db)
 
-        # Test 3: Test Magnus contact
-        test_magnus_contact_match(db)
+        # Test 3: Test Stefan contact (name from header, not filename)
+        test_stefan_contact_match(db)
 
         # Test 4: Test case-insensitive matching
         test_case_insensitive_matching(db)

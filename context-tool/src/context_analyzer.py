@@ -2,7 +2,8 @@
 
 import sqlite3
 import json
-from typing import Dict, List, Any, Optional
+import re
+from typing import Dict, List, Any, Optional, Tuple
 from .pattern_matcher import PatternMatcher
 from .action_suggester import ActionSuggester
 
@@ -48,6 +49,12 @@ class ContextAnalyzer:
         # 2. Find exact matches in database
         exact_matches = self._find_exact_matches(selected_text)
 
+        # 2.1. Find persons mentioned in text (smart extraction)
+        person_matches = self._find_persons_in_text(selected_text)
+
+        # Merge person matches with exact matches
+        exact_matches.extend(person_matches)
+
         # Deduplicate exact matches (type + id or type + data)
         exact_matches = self._dedupe_entities(exact_matches)
 
@@ -78,6 +85,9 @@ class ContextAnalyzer:
         # 7. Generate insights
         insights = self._generate_insights(exact_matches, related_items)
 
+        # 8. Detect people for save suggestions
+        detected_people = self._detect_people_for_save(selected_text, exact_matches)
+
         return {
             'selected_text': selected_text,
             'detected_type': text_type,
@@ -88,8 +98,167 @@ class ContextAnalyzer:
             'related_items': related_items,
             'smart_context': smart_context,
             'actions': actions,
-            'insights': insights
+            'insights': insights,
+            'detected_people': detected_people
         }
+
+    def _extract_person_names(self, text: str) -> List[str]:
+        """
+        Extract potential person names from text (two or more capitalized words)
+
+        Args:
+            text: Text to extract names from
+
+        Returns:
+            List of detected person names
+        """
+        # Pattern: Two or more capitalized words
+        # Examples: "John Doe", "Sarah Mitchell", "Dr. Jane Smith"
+        pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b'
+        matches = re.findall(pattern, text)
+
+        # Return unique names
+        return list(set(matches))
+
+    def _match_person_to_contact(self, person_name: str) -> List[Tuple[Dict, int]]:
+        """
+        Match a person name against contacts database with scoring
+
+        Args:
+            person_name: Name to match (e.g., "Emma Rodriguez")
+
+        Returns:
+            List of (contact_dict, score) tuples
+        """
+        matches = []
+        name_parts = person_name.split()
+
+        # Get all contacts
+        cursor = self.db.execute("SELECT * FROM contacts")
+        contacts = cursor.fetchall()
+
+        for contact_row in contacts:
+            contact = self._row_to_dict(contact_row)
+            contact_name = contact.get('name', '')
+
+            if not contact_name:
+                continue
+
+            contact_name_lower = contact_name.lower()
+            person_name_lower = person_name.lower()
+
+            score = 0
+
+            # Exact full name match = 10 points
+            if person_name_lower == contact_name_lower:
+                score = 10
+            # Full name match (substring) = 8 points
+            elif person_name_lower in contact_name_lower or contact_name_lower in person_name_lower:
+                score = 8
+            else:
+                # Check individual name parts
+                for part in name_parts:
+                    if len(part) < 2:  # Skip very short parts
+                        continue
+                    part_lower = part.lower()
+                    if part_lower in contact_name_lower:
+                        score += 1
+
+            if score > 0:
+                matches.append((contact, score))
+
+        # Sort by score (highest first)
+        matches.sort(key=lambda x: x[1], reverse=True)
+
+        return matches
+
+    def _find_persons_in_text(self, text: str) -> List[Dict]:
+        """
+        Find person contacts mentioned in text with scoring
+
+        Args:
+            text: Text to search for person names
+
+        Returns:
+            List of contact matches with scores, sorted by relevance
+        """
+        results = []
+
+        # Extract person names from text
+        person_names = self._extract_person_names(text)
+
+        if not person_names:
+            return results
+
+        # Match each name against contacts
+        all_matches = {}  # contact_id -> (contact, max_score)
+
+        for person_name in person_names:
+            matches = self._match_person_to_contact(person_name)
+
+            for contact, score in matches:
+                contact_id = contact.get('id')
+                if contact_id in all_matches:
+                    # Keep highest score
+                    existing_score = all_matches[contact_id][1]
+                    if score > existing_score:
+                        all_matches[contact_id] = (contact, score)
+                else:
+                    all_matches[contact_id] = (contact, score)
+
+        # Convert to result format
+        for contact, score in all_matches.values():
+            results.append({
+                'type': 'contact',
+                'data': contact,
+                'match_score': score,
+                'match_reason': f"Found name in text (score: {score})"
+            })
+
+        # Sort by score (highest first)
+        results.sort(key=lambda x: x.get('match_score', 0), reverse=True)
+
+        return results
+
+    def _detect_people_for_save(self, text: str, exact_matches: List[Dict]) -> List[Dict]:
+        """
+        Detect people in text for save suggestions
+
+        Args:
+            text: Text to analyze
+            exact_matches: Already found exact matches (to avoid duplicating work)
+
+        Returns:
+            List of dicts with {'name': str, 'exists': bool, 'contact_id': Optional[int]}
+        """
+        detected = []
+
+        # Extract all person names from text
+        person_names = self._extract_person_names(text)
+
+        for person_name in person_names:
+            # Check if this person exists in database
+            matches = self._match_person_to_contact(person_name)
+
+            if matches:
+                # Person exists - get best match
+                best_contact, score = matches[0]
+                detected.append({
+                    'name': person_name,
+                    'exists': True,
+                    'contact_id': best_contact.get('id'),
+                    'contact_name': best_contact.get('name'),
+                    'score': score
+                })
+            else:
+                # New person detected
+                detected.append({
+                    'name': person_name,
+                    'exists': False,
+                    'contact_id': None
+                })
+
+        return detected
 
     def _find_exact_matches(self, text: str) -> List[Dict]:
         """

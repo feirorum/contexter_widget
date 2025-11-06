@@ -190,6 +190,204 @@
             margin-bottom: 8px;
             font-size: 14px;
         }
+
+        /* Modal styles */
+        #saveModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-content h2 {
+            color: #667eea;
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+
+        #savePreview {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .save-choice {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .save-choice:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+
+        .save-choice input[type="radio"] {
+            margin-right: 12px;
+            margin-top: 4px;
+            cursor: pointer;
+        }
+
+        .save-choice label {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .choice-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .choice-reason {
+            font-size: 13px;
+            color: #666;
+        }
+
+        /* Abbreviation fields */
+        #abbreviationFields {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+        }
+
+        #abbreviationFields.show {
+            display: block;
+        }
+
+        #abbreviationFields h3 {
+            color: #667eea;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .field-group {
+            margin-bottom: 16px;
+        }
+
+        .field-group label {
+            display: block;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .field-group input,
+        .field-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .field-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .field-group input:focus,
+        .field-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .modal-btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .modal-btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        /* Toast animation */
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* Action buttons container */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
@@ -275,6 +473,59 @@
                 <div class="empty-state">
                     👆 Select some text on the left to see contextual information
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Dialog Modal -->
+    <div id="saveModal">
+        <div class="modal-content">
+            <h2>How do you want to save this?</h2>
+            <div id="savePreview"></div>
+            <div id="saveChoices"></div>
+
+            <!-- Abbreviation fields (shown when abbreviation is selected) -->
+            <div id="abbreviationFields">
+                <h3>Abbreviation Details</h3>
+                <div class="field-group">
+                    <label for="abbrFull">Full Term *</label>
+                    <input
+                        type="text"
+                        id="abbrFull"
+                        placeholder="e.g., Application Programming Interface"
+                        required
+                    />
+                </div>
+                <div class="field-group">
+                    <label for="abbrDefinition">Definition</label>
+                    <textarea
+                        id="abbrDefinition"
+                        placeholder="Enter the definition of this abbreviation..."
+                    ></textarea>
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-primary" onclick="saveWithSelectedType()">💾 Save</button>
+                <button class="modal-btn modal-btn-secondary" onclick="closeSaveDialog()">✕ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Smart Save Dialog Modal -->
+    <div id="smartSaveModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); align-items: center; justify-content: center; z-index: 9999;">
+        <div class="modal-content">
+            <h2>💾 Save Snippet with Smart Linking</h2>
+            <div id="smartSavePreview" style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 20px; color: #666; font-style: italic;"></div>
+
+            <!-- People detected section -->
+            <div id="smartSaveOptions">
+                <!-- This will be populated dynamically -->
+            </div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-primary" onclick="saveWithSmartOptions()">💾 Save</button>
+                <button class="modal-btn modal-btn-secondary" onclick="closeSmartSaveDialog()">✕ Cancel</button>
             </div>
         </div>
     </div>

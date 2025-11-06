@@ -102,6 +102,9 @@ def main():
 
     args = parser.parse_args()
 
+    # EARLY VALIDATION: Check data directory and config file BEFORE heavy loading
+    print("\n🔍 Validating parameters...")
+
     # Auto-select config file for markdown mode
     if args.markdown and args.config == 'config.yaml':
         # If markdown flag is set and no custom config, use markdown config
@@ -112,7 +115,28 @@ def main():
 
     # Load configuration
     config_path = Path(args.config)
+    if not config_path.exists() and args.config != 'config.yaml':
+        print(f"❌ Error: Config file not found: {args.config}")
+        print(f"   Available configs: config.yaml, config-markdown.yaml")
+        return 1
+
     config = load_config(config_path)
+
+    # Validate data directory early
+    if args.data_dir:
+        config['data']['directory'] = args.data_dir
+
+    data_dir_to_check = Path(config['data']['directory'])
+    if args.markdown and str(data_dir_to_check) == './data':
+        data_dir_to_check = Path('./data-md')
+
+    if not data_dir_to_check.exists():
+        print(f"❌ Error: Data directory not found: {data_dir_to_check}")
+        print(f"   Please create the directory or use --data-dir to specify a valid path")
+        return 1
+
+    print(f"✓ Config file: {config_path}")
+    print(f"✓ Data directory: {data_dir_to_check.absolute()}")
 
     # Override config with command line arguments
     if args.mode:
@@ -127,7 +151,7 @@ def main():
         config['semantic_search']['enabled'] = False
 
     # Get configuration values
-    data_dir = Path(config['data']['directory'])
+    data_dir = data_dir_to_check  # Already validated above
     db_path = config['database']['path']
     enable_semantic = config['semantic_search']['enabled']
     host = config['ui']['host']
@@ -137,12 +161,10 @@ def main():
     # Determine data format
     use_markdown = args.markdown
 
-    # Auto-switch data directory for markdown mode if still using default
-    if use_markdown and str(data_dir) == './data':
-        data_dir = Path('./data-md')
-        print(f"📁 Auto-switched to markdown data directory: {data_dir}")
-
-    print(f"\nStarting Context Tool in {mode} mode...")
+    print(f"\n✓ All parameters validated successfully!")
+    print(f"\n" + "=" * 60)
+    print(f"Starting Context Tool in {mode} mode...")
+    print(f"=" * 60)
     print(f"📁 Data directory: {data_dir}")
     print(f"📁 Data format: {'Markdown' if use_markdown else 'YAML'}")
     print(f"💾 Database: {db_path}")

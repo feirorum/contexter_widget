@@ -76,7 +76,35 @@ When you enable `--system-mode`, the Context Tool will monitor your system clipb
 ```bash
 # Run verification tests
 ./venv/bin/python3 tests/test_basic_functionality.py
+
+# Run semantic search tests (requires sentence-transformers)
+./venv/bin/python3 tests/test_semantic_search.py
+
+# Run all tests
+for test in tests/test_basic_functionality.py tests/test_markdown_mode.py tests/test_config_markdown.py tests/test_data_loaders.py tests/test_person_name_matching.py tests/test_feature_parity.py tests/test_semantic_search.py
+do
+  echo "Testing: $test"
+  ./venv/bin/python3 "$test" || exit 1
+done
 ```
+
+### Semantic Search Testing
+
+The semantic search functionality has comprehensive test coverage:
+
+- **Embedding Generation**: Tests 384-dimensional vector creation for contacts, snippets, and projects
+- **Similarity Search**: Tests cosine similarity calculations and ranking
+- **Threshold Filtering**: Tests configurable similarity thresholds (0.0-1.0)
+- **Integration**: Tests semantic search integrated with context analyzer
+- **Clipboard Scenarios**: Tests real-world use cases (authentication questions, performance issues, UI work)
+- **Quality Checks**: Tests conceptual understanding (synonyms, related concepts)
+
+**Example test results:**
+- "user authentication" → Found JWT notes, Sarah (Auth Lead), OAuth project (score: 0.438)
+- "database performance" → Found optimization notes, threading fixes
+- "visual design" → Found React/UI content, Emma (Frontend Lead)
+
+See `SEMANTIC_SEARCH_TESTING.md` for detailed results and `SEMANTIC_SEARCH.md` for full documentation.
 
 ## Smart Saver with Auto-Detection (NEW!)
 
@@ -370,6 +398,43 @@ When you write `[[Sarah Mitchell]]` or `[[OAuth]]` in your markdown files:
 5. Changes are instantly available in Context Tool
 
 See `data-md/README.md` for detailed format documentation and examples.
+
+### Person Name Extraction (Important!)
+
+The markdown loader extracts person names using this **priority order**:
+
+1. **Frontmatter `name` field** (explicit override)
+2. **First markdown header** (`# Name`) - PRIMARY METHOD
+3. **Filename** (last resort fallback)
+
+This is Obsidian-compatible! You don't need to duplicate the name in frontmatter:
+
+```markdown
+---
+type: person
+email: stefan@example.com
+# NO 'name' field needed!
+---
+
+# Stefan Krona  ← This is enough!
+
+Developer working on TerminAI...
+```
+
+**Why this works:**
+- ✅ Filename can be for organization (e.g., `magnus-sjostrand.md`)
+- ✅ Header shows the canonical name (e.g., `# Stefan Krona`)
+- ✅ No data duplication required
+- ✅ Single source of truth (the header)
+- ✅ Obsidian displays the header as the note title
+
+**Matching:**
+- "Stefan" → Finds Stefan Krona ✓
+- "Krona" → Finds Stefan Krona ✓
+- "Stefan Krona" → Finds Stefan Krona ✓
+- "magnus" → No match ✓ (name is Stefan, not Magnus)
+
+See `PERSON_NAME_MATCHING_FIX.md` for details.
 
 ## Development Notes
 

@@ -107,13 +107,33 @@ class WidgetMode:
             semantic_searcher=semantic_searcher
         )
 
-        # Create smart saver
-        self.saver = SmartSaver(data_dir=self.data_dir)
+        # Create smart saver with reload callback
+        self.saver = SmartSaver(
+            data_dir=self.data_dir,
+            on_save_callback=self._reload_data_after_save
+        )
 
         # Create widget UI (show on start for widget mode)
         self.widget = ContextWidget(on_save_snippet=self.saver, start_hidden=False)
 
         print("Initialization complete!")
+
+    def _reload_data_after_save(self, save_type: str):
+        """
+        Reload data from markdown files after saving
+
+        Args:
+            save_type: Type of entity that was saved
+        """
+        print(f"🔄 Reloading {save_type} data...")
+
+        # Reload all data from markdown files
+        if self.use_markdown:
+            load_data(self.db, self.data_dir, format='markdown')
+        else:
+            load_data(self.db, self.data_dir, format='yaml')
+
+        print(f"✓ Data reloaded! New {save_type} is now searchable.")
 
     def check_clipboard(self):
         """Check clipboard for changes and analyze"""

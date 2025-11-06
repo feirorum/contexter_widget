@@ -13,7 +13,7 @@ github: https://github.com/sefn/terminai
 location: Europe
 ---
 
-# Magnus Sjöstrand
+# Stefan Krona
 
 Developer working on TerminAI, a Linux LLM interface project.
 

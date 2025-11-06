@@ -40,3 +40,13 @@ Working on JT-344 authentication feature for the new API. Leading the migration 
 - [[Context Tool]] - Current project
 - [[OAuth]] - Primary expertise area
 - [[JWT]] - Working with daily
+
+## Snippets
+
+- [[2025-11-06-sarah-mitchell-from]] - Sarah Mitchell from the Auth Team reached out about JT-344 yesterday. She mentio...
+
+- [[2025-11-06-sarah-mitchell-from]] - Sarah Mitchell from the Auth Team reached out about JT-344 yesterday. She mentio...
+
+- [[2025-11-06-sarah-mitchell-from-224211]] - Sarah Mitchell from the Auth Team reached out about JT-344 yesterday. She mentio...
+
+- [[2025-11-06-sarah-mitchell-from-224211]] - Sarah Mitchell from the Auth Team reached out about JT-344 yesterday. She mentio...

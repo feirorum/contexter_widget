@@ -168,8 +168,20 @@ class MarkdownDataLoader:
         for md_file in people_dir.glob("*.md"):
             frontmatter, body = self.parse_markdown_file(md_file)
 
-            # Extract name from frontmatter or filename
-            name = frontmatter.get('name') or md_file.stem.replace('-', ' ').title()
+            # Extract name: Priority order:
+            # 1. frontmatter 'name' field
+            # 2. First markdown header (# Name)
+            # 3. Filename as fallback
+            name = frontmatter.get('name')
+            if not name:
+                # Try to extract from first header in markdown
+                header_match = re.search(r'^#\s+(.+)$', body, re.MULTILINE)
+                if header_match:
+                    name = header_match.group(1).strip()
+                else:
+                    # Fallback to filename
+                    name = md_file.stem.replace('-', ' ').title()
+
             email = frontmatter.get('email')
             role = frontmatter.get('role')
             last_contact = frontmatter.get('last_contact')

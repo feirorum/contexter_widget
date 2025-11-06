@@ -166,11 +166,11 @@ class ContextWidget:
         self.footer_frame.pack(fill=tk.X, padx=10, pady=(5, 10))
 
         # Action buttons
-        button_frame = tk.Frame(self.footer_frame, bg=self.bg_color)
-        button_frame.pack(side=tk.LEFT)
+        self.button_frame = tk.Frame(self.footer_frame, bg=self.bg_color)
+        self.button_frame.pack(side=tk.LEFT)
 
         self.search_web_btn = tk.Button(
-            button_frame,
+            self.button_frame,
             text="🔍 Search Web",
             font=self.normal_font,
             bg=self.accent_color,
@@ -184,7 +184,7 @@ class ContextWidget:
         self.search_web_btn.pack(side=tk.LEFT, padx=(0, 5))
 
         self.save_snippet_btn = tk.Button(
-            button_frame,
+            self.button_frame,
             text="💾 Save Snippet",
             font=self.normal_font,
             bg=self.accent_color,
@@ -198,7 +198,7 @@ class ContextWidget:
         self.save_snippet_btn.pack(side=tk.LEFT, padx=5)
 
         self.copy_btn = tk.Button(
-            button_frame,
+            self.button_frame,
             text="📋 Copy",
             font=self.normal_font,
             bg=self.accent_color,
@@ -213,7 +213,7 @@ class ContextWidget:
 
         # Close button
         close_btn = tk.Button(
-            button_frame,
+            self.button_frame,
             text="✕ Close",
             font=self.normal_font,
             bg="#e0e0e0",
@@ -225,6 +225,9 @@ class ContextWidget:
             command=self.hide
         )
         close_btn.pack(side=tk.LEFT, padx=5)
+
+        # Store reference to dynamic action buttons
+        self.dynamic_action_buttons = []
 
         # Keyboard hint
         hint_label = tk.Label(
@@ -333,8 +336,15 @@ class ContextWidget:
                 'data': {}
             })
 
-        # Update header
-        self.selected_text_label.config(text=f'"{self.truncate_text(selected_text, 80)}"')
+        # Update header with detected type badge
+        header_text = f'"{self.truncate_text(selected_text, 80)}"'
+        detected_type = result.get('detected_type')
+        if detected_type:
+            header_text += f' [{detected_type}]'
+        self.selected_text_label.config(text=header_text)
+
+        # Render dynamic action buttons
+        self._render_action_buttons(result.get('actions', []))
 
         # Render the list
         self.render_list()
@@ -685,6 +695,94 @@ class ContextWidget:
 
         selected_choice = tk.StringVar(value=choices[0]['type'])
 
+        # Create abbreviation fields frame (hidden by default)
+        abbr_fields_frame = tk.Frame(dialog, bg="#f8f9fa", relief=tk.RAISED, bd=2)
+
+        tk.Label(
+            abbr_fields_frame,
+            text="Abbreviation Details",
+            font=self.title_font,
+            bg="#f8f9fa",
+            fg=self.fg_color
+        ).pack(anchor=tk.W, padx=15, pady=(15, 10))
+
+        # Full term field
+        tk.Label(
+            abbr_fields_frame,
+            text="Full Term *",
+            font=self.normal_font,
+            bg="#f8f9fa",
+            fg=self.fg_color
+        ).pack(anchor=tk.W, padx=15, pady=(5, 2))
+
+        abbr_full_entry = tk.Entry(
+            abbr_fields_frame,
+            font=self.normal_font,
+            bg="white",
+            relief=tk.SOLID,
+            bd=1
+        )
+        abbr_full_entry.pack(fill=tk.X, padx=15, pady=(0, 10))
+        abbr_full_entry.insert(0, "e.g., Application Programming Interface")
+        abbr_full_entry.config(fg="#999")
+
+        # Placeholder behavior for full term
+        def on_full_focus_in(event):
+            if abbr_full_entry.get() == "e.g., Application Programming Interface":
+                abbr_full_entry.delete(0, tk.END)
+                abbr_full_entry.config(fg=self.fg_color)
+
+        def on_full_focus_out(event):
+            if not abbr_full_entry.get():
+                abbr_full_entry.insert(0, "e.g., Application Programming Interface")
+                abbr_full_entry.config(fg="#999")
+
+        abbr_full_entry.bind('<FocusIn>', on_full_focus_in)
+        abbr_full_entry.bind('<FocusOut>', on_full_focus_out)
+
+        # Definition field
+        tk.Label(
+            abbr_fields_frame,
+            text="Definition (optional)",
+            font=self.normal_font,
+            bg="#f8f9fa",
+            fg=self.fg_color
+        ).pack(anchor=tk.W, padx=15, pady=(5, 2))
+
+        abbr_def_text = tk.Text(
+            abbr_fields_frame,
+            font=self.normal_font,
+            bg="white",
+            relief=tk.SOLID,
+            bd=1,
+            height=3,
+            wrap=tk.WORD
+        )
+        abbr_def_text.pack(fill=tk.X, padx=15, pady=(0, 15))
+        abbr_def_text.insert("1.0", "Enter the definition...")
+        abbr_def_text.config(fg="#999")
+
+        # Placeholder behavior for definition
+        def on_def_focus_in(event):
+            if abbr_def_text.get("1.0", tk.END).strip() == "Enter the definition...":
+                abbr_def_text.delete("1.0", tk.END)
+                abbr_def_text.config(fg=self.fg_color)
+
+        def on_def_focus_out(event):
+            if not abbr_def_text.get("1.0", tk.END).strip():
+                abbr_def_text.insert("1.0", "Enter the definition...")
+                abbr_def_text.config(fg="#999")
+
+        abbr_def_text.bind('<FocusIn>', on_def_focus_in)
+        abbr_def_text.bind('<FocusOut>', on_def_focus_out)
+
+        # Function to show/hide abbreviation fields
+        def on_choice_change():
+            if selected_choice.get() == 'abbreviation':
+                abbr_fields_frame.pack(fill=tk.X, padx=10, pady=(0, 10), after=choices_frame)
+            else:
+                abbr_fields_frame.pack_forget()
+
         for i, choice in enumerate(choices):
             # Create choice card
             choice_frame = tk.Frame(choices_frame, bg="white", relief=tk.RAISED, bd=1)
@@ -701,7 +799,8 @@ class ContextWidget:
                 fg=self.fg_color,
                 activebackground="white",
                 selectcolor=self.highlight_color,
-                cursor="hand2"
+                cursor="hand2",
+                command=on_choice_change
             )
             rb.pack(anchor=tk.W, padx=10, pady=(10, 2))
 
@@ -716,14 +815,39 @@ class ContextWidget:
                 wraplength=450
             ).pack(anchor=tk.W, padx=30, pady=(0, 10))
 
+        # Show abbreviation fields if first choice is abbreviation
+        if choices[0]['type'] == 'abbreviation':
+            abbr_fields_frame.pack(fill=tk.X, padx=10, pady=(0, 10), after=choices_frame)
+
         # Buttons frame
         button_frame = tk.Frame(dialog, bg="white")
         button_frame.pack(fill=tk.X, padx=10, pady=10)
 
         def on_save():
             choice_type = selected_choice.get()
+
+            # Collect metadata for abbreviations
+            metadata = None
+            if choice_type == 'abbreviation':
+                full = abbr_full_entry.get()
+                definition = abbr_def_text.get("1.0", tk.END).strip()
+
+                # Check if full term is placeholder or empty
+                if full == "e.g., Application Programming Interface" or not full:
+                    self.show_message("Please enter the full term")
+                    return
+
+                # Check if definition is placeholder
+                if definition == "Enter the definition...":
+                    definition = ""
+
+                metadata = {
+                    'full': full,
+                    'definition': definition
+                }
+
             dialog.destroy()
-            self._perform_save(text, choice_type)
+            self._perform_save(text, choice_type, metadata)
 
         def on_cancel():
             dialog.destroy()
@@ -762,17 +886,18 @@ class ContextWidget:
         dialog.bind('<Return>', lambda e: on_save())
         dialog.bind('<Escape>', lambda e: on_cancel())
 
-    def _perform_save(self, text: str, save_type: str):
+    def _perform_save(self, text: str, save_type: str, metadata: Optional[Dict] = None):
         """
         Perform the actual save operation
 
         Args:
             text: Text to save
             save_type: Type of entity to save as
+            metadata: Optional metadata (e.g., for abbreviations)
         """
         if hasattr(self.on_save_snippet, 'save'):
-            # Smart saver with type parameter
-            result = self.on_save_snippet.save(text, save_type)
+            # Smart saver with type and metadata parameters
+            result = self.on_save_snippet.save(text, save_type, metadata)
             if result:
                 self.show_message(f"✓ Saved as {save_type}!")
         else:
@@ -788,6 +913,60 @@ class ContextWidget:
                 self.root.clipboard_clear()
                 self.root.clipboard_append(text)
                 self.show_message("Copied to clipboard!")
+
+    def _render_action_buttons(self, actions: List[Dict]):
+        """
+        Render dynamic action buttons from analysis result
+
+        Args:
+            actions: List of action dicts with 'type', 'label', and 'value'
+        """
+        # Remove existing dynamic buttons
+        for btn in self.dynamic_action_buttons:
+            btn.destroy()
+        self.dynamic_action_buttons.clear()
+
+        # Add new dynamic buttons (insert before close button)
+        for action in actions:
+            btn = tk.Button(
+                self.button_frame,
+                text=action.get('label', action.get('type', 'Action')),
+                font=self.normal_font,
+                bg="#764ba2",  # Different color for dynamic actions
+                fg="white",
+                relief=tk.FLAT,
+                padx=15,
+                pady=8,
+                cursor="hand2",
+                command=lambda a=action: self._handle_action(a)
+            )
+            btn.pack(side=tk.LEFT, padx=5, before=self.copy_btn)
+            self.dynamic_action_buttons.append(btn)
+
+    def _handle_action(self, action: Dict):
+        """
+        Handle dynamic action button click
+
+        Args:
+            action: Action dict with 'type' and 'value'
+        """
+        action_type = action.get('type')
+        value = action.get('value', '')
+
+        if action_type == 'url':
+            # Open URL in browser
+            webbrowser.open(value)
+            self.show_message(f"Opened: {value[:30]}...")
+        elif action_type == 'copy':
+            # Copy value to clipboard
+            self.root.clipboard_clear()
+            self.root.clipboard_append(value)
+            self.show_message(f"Copied: {value[:30]}...")
+        elif action_type == 'action':
+            # Custom action (could be extended)
+            self.show_message(f"Action: {value}")
+        else:
+            self.show_message(f"Unknown action: {action_type}")
 
     def show_message(self, message: str):
         """Show a temporary message"""
