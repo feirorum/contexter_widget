@@ -218,7 +218,9 @@ class EntitySaver:
         text: str,
         tags: Optional[List[str]] = None,
         source: Optional[str] = None,
-        additional_info: Optional[Dict] = None
+        additional_info: Optional[Dict] = None,
+        auto_link_persons: bool = True,
+        explicit_person_names: Optional[List[str]] = None
     ) -> Path:
         """
         Save text as a snippet markdown file
@@ -228,6 +230,8 @@ class EntitySaver:
             tags: Optional tags
             source: Source of the snippet
             additional_info: Additional metadata
+            auto_link_persons: If True, automatically detect and link to person names in text (default: True)
+            explicit_person_names: If provided, link only to these specific person names (overrides auto-detection)
 
         Returns:
             Path to created file
@@ -282,8 +286,14 @@ class EntitySaver:
             original_text=text[:100]
         )
 
-        # Detect person names and link snippet to their pages
-        self._link_snippet_to_persons(text, filepath)
+        # Link snippet to person pages based on parameters
+        if explicit_person_names is not None:
+            # Use explicit list of person names (from user selection)
+            self._link_snippet_to_explicit_persons(explicit_person_names, filepath, text)
+        elif auto_link_persons:
+            # Auto-detect person names and link
+            self._link_snippet_to_persons(text, filepath)
+        # else: no linking
 
         return filepath
 
@@ -553,6 +563,31 @@ class EntitySaver:
             else:
                 print(f"   ⚠ Person file not found for: {person_name}")
 
+    def _link_snippet_to_explicit_persons(self, person_names: List[str], snippet_path: Path, snippet_text: str):
+        """
+        Link snippet to explicitly specified person names (user-selected contacts)
+
+        Args:
+            person_names: List of person names to link to
+            snippet_path: Path to the snippet file
+            snippet_text: Text of the snippet
+        """
+        if not person_names:
+            return
+
+        print(f"   🔗 Linking snippet to {len(person_names)} explicitly selected person(s): {', '.join(person_names)}")
+
+        # For each person, find their file and append snippet
+        for person_name in person_names:
+            if not person_name:  # Skip empty names
+                continue
+
+            person_file = self._find_person_file(person_name)
+            if person_file:
+                self._append_snippet_to_person_file(person_file, snippet_path, snippet_text)
+            else:
+                print(f"   ⚠ Person file not found for: {person_name}")
+
     def _build_markdown(self, title: str, frontmatter: Dict, body: str) -> str:
         """
         Build markdown file content with frontmatter
@@ -678,7 +713,9 @@ class SmartSaver:
         Args:
             text: Text to save
             save_type: Type to save as ('person', 'snippet', 'abbreviation', 'project')
-            metadata: Optional metadata (e.g., for abbreviations: {'full': '...', 'definition': '...'})
+            metadata: Optional metadata dict which can include:
+                - For abbreviations: {'full': '...', 'definition': '...'}
+                - For snippets: {'tags': [...], 'source': '...', 'explicit_person_names': [...], 'auto_link_persons': bool}
 
         Returns:
             Path to saved file
@@ -702,7 +739,19 @@ class SmartSaver:
         elif save_type == 'project':
             result = self.saver.save_as_project(text)
         else:  # Default to snippet
-            result = self.saver.save_as_snippet(text)
+            # Extract snippet-specific metadata
+            tags = metadata.get('tags', [])
+            source = metadata.get('source')
+            explicit_person_names = metadata.get('explicit_person_names')
+            auto_link_persons = metadata.get('auto_link_persons', True)
+
+            result = self.saver.save_as_snippet(
+                text=text,
+                tags=tags,
+                source=source,
+                auto_link_persons=auto_link_persons,
+                explicit_person_names=explicit_person_names
+            )
 
         # Call callback after successful save (for database reload)
         if result and self.on_save_callback:

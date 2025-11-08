@@ -191,6 +191,9 @@ function displayContext(result, isSystemSelection = false) {
     // Store the result for smart save dialog
     currentAnalysisResult = result;
 
+    // Update current selection from the result (important for system clipboard selections)
+    currentSelection = result.selected_text;
+
     const displayEl = document.getElementById('contextDisplay');
     let html = '';
 
