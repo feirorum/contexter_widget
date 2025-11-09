@@ -99,6 +99,12 @@ def main():
         action='store_true',
         help='Use markdown files instead of YAML (Obsidian-compatible)'
     )
+    parser.add_argument(
+        '--prototype',
+        type=int,
+        choices=[1, 2, 3, 4],
+        help='Use experimental prototype widget (1: Action Wheel, 2: Hotkey Overlay, 3: Always-On Sidebar, 4: Smart Context Bar)'
+    )
 
     args = parser.parse_args()
 
@@ -188,17 +194,79 @@ def main():
     # Run based on mode
     if mode == 'widget':
         # Widget mode - desktop UI with clipboard monitoring
-        print("\nStarting desktop widget mode...")
-        from src.widget_mode import run_widget_mode
+        prototype_num = args.prototype if hasattr(args, 'prototype') and args.prototype else None
 
-        run_widget_mode(
-            data_dir=data_dir,
-            db_path=db_path,
-            enable_semantic=enable_semantic,
-            poll_interval=0.5,
-            min_length=3,
-            use_markdown=use_markdown
-        )
+        if prototype_num:
+            # Run experimental prototype
+            print(f"\nStarting prototype {prototype_num} widget mode...")
+            prototype_names = {
+                1: "Action Wheel",
+                2: "Hotkey Overlay",
+                3: "Always-On Sidebar",
+                4: "Smart Context Bar"
+            }
+            print(f"Prototype: {prototype_names[prototype_num]}")
+
+            # Import and run prototype
+            import sys
+            import importlib.util
+            from pathlib import Path
+            from src.widget_mode import WidgetMode
+
+            # Load the appropriate widget class
+            prototype_dir = Path(__file__).parent.parent / 'widget-prototype'
+            widget_files = {
+                1: prototype_dir / 'prototype1-action-wheel' / 'action_wheel_widget.py',
+                2: prototype_dir / 'prototype2-hotkey-overlay' / 'hotkey_overlay_widget.py',
+                3: prototype_dir / 'prototype3-always-on-sidebar' / 'sidebar_widget.py',
+                4: prototype_dir / 'prototype4-smart-context-bar' / 'context_bar_widget.py'
+            }
+
+            widget_classes = {
+                1: 'ActionWheelWidget',
+                2: 'HotkeyOverlayWidget',
+                3: 'SidebarWidget',
+                4: 'ContextBarWidget'
+            }
+
+            # Dynamically import the widget module
+            widget_file = widget_files[prototype_num]
+            spec = importlib.util.spec_from_file_location(f"prototype{prototype_num}", widget_file)
+            widget_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(widget_module)
+
+            # Get the widget class
+            WidgetClass = getattr(widget_module, widget_classes[prototype_num])
+
+            # Create custom widget mode
+            mode_instance = WidgetMode(
+                data_dir=data_dir,
+                db_path=db_path,
+                enable_semantic=enable_semantic,
+                poll_interval=0.5,
+                min_length=3,
+                use_markdown=use_markdown
+            )
+            mode_instance.initialize()
+
+            # Replace widget with prototype
+            mode_instance.widget = WidgetClass(on_save_snippet=mode_instance.saver)
+            mode_instance.run()
+
+        else:
+            # Run default widget mode
+            print("\nStarting desktop widget mode...")
+            from src.widget_mode import run_widget_mode
+
+            run_widget_mode(
+                data_dir=data_dir,
+                db_path=db_path,
+                enable_semantic=enable_semantic,
+                poll_interval=0.5,
+                min_length=3,
+                use_markdown=use_markdown
+            )
+
         return 0
 
     elif mode == 'demo' or mode == 'web' or system_mode_enabled:
