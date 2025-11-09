@@ -49,6 +49,7 @@ class AnalysisResponse(BaseModel):
     smart_context: str
     actions: List[Dict]
     insights: List[str]
+    detected_people: List[Dict] = []  # People detected in text for smart save
 
 
 # Global state
