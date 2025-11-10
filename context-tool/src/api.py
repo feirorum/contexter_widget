@@ -49,6 +49,7 @@ class AnalysisResponse(BaseModel):
     smart_context: str
     actions: List[Dict]
     insights: List[str]
+    detected_people: List[Dict] = []  # People detected in text for smart save
 
 
 # Global state
@@ -267,17 +268,37 @@ async def save_snippet(request: SnippetRequest):
                     except Exception as e:
                         print(f"Warning: Failed to create contact for {person_name}: {e}")
 
-            # 2. Save the snippet (will automatically link to existing persons via _link_snippet_to_persons)
+            # 2. Build list of explicit person names to link to (respects user selections)
+            explicit_person_names = []
+
+            # Add existing contacts the user selected
+            for existing_contact in request.link_to_existing:
+                contact_name = existing_contact.get('contact_name', '')
+                if contact_name:
+                    explicit_person_names.append(contact_name)
+
+            # Add newly created contacts
+            for new_person in request.create_new_contacts:
+                person_name = new_person.get('name', '')
+                if person_name:
+                    explicit_person_names.append(person_name)
+
+            # 3. Save the snippet with explicit person linking (only link to user-selected contacts)
+            # If user made selections, use explicit linking; otherwise auto-detect
+            use_explicit = len(request.link_to_existing) > 0 or len(request.create_new_contacts) > 0
+
             filepath = saver.save(
                 text=request.text,
                 save_type='snippet',
                 metadata={
                     'tags': request.tags,
-                    'source': request.source or 'web'
+                    'source': request.source or 'web',
+                    'explicit_person_names': explicit_person_names if use_explicit else None,
+                    'auto_link_persons': not use_explicit  # Auto-link only if no explicit selections
                 }
             )
 
-            # 3. Prepare result message
+            # 4. Prepare result message
             msg_parts = [f"Snippet saved to {filepath.name}"]
             if created_contacts:
                 msg_parts.append(f"Created {len(created_contacts)} new contact(s): {', '.join(created_contacts)}")
