@@ -242,10 +242,13 @@ The Context Tool supports both YAML and Markdown formats. Use the `--markdown` f
 
 ```bash
 # Use markdown files
-./venv/bin/python3 main.py --mode widget --no-semantic --markdown
+./venv/bin/python3 main.py --mode widget --markdown
 
 # Use YAML files (default)
-./venv/bin/python3 main.py --mode widget --no-semantic
+./venv/bin/python3 main.py --mode widget
+
+# Enable semantic search with either format (optional)
+# ./venv/bin/python3 main.py --mode widget --local-semantic [--markdown]
 ```
 
 When you use `--markdown`, the tool automatically looks in `data-md/` instead of `data/`.

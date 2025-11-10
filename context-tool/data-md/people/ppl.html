@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>People & Topics — Context Tool</title>
+  <style>
+    :root{--bg:#fff8fb;--card:#ffffff;--muted:#6b7280;--accent1:#7c3aed;--accent2:#06b6d4}
+    body{font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; background:linear-gradient(180deg, #fff, #fffbfe 35%); color:#0f172a}
+    header{padding:3rem 2rem 2rem; text-align:center; background:linear-gradient(90deg,var(--accent2),#ff7ab6); color:white}
+    header h1{margin:0;font-size:2.1rem;letter-spacing:-0.02em}
+    header p{margin:0.5rem 0 0;opacity:0.95}
+  /* increased top margin so the foldable note pane has breathing room above the cards */
+  .wrap{max-width:1100px;margin:28px auto 64px;padding:0 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+    .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:0 6px 20px rgba(12,15,25,0.08);display:flex;gap:12px;align-items:flex-start}
+    .avatar{flex:0 0 64px;height:64px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18px}
+    .avatar.er{background:linear-gradient(135deg,#f97316,#f59e0b)}
+    .avatar.jm{background:linear-gradient(135deg,#06b6d4,#3b82f6)}
+    .avatar.jc{background:linear-gradient(135deg,#ef4444,#f43f5e)}
+    .avatar.sm{background:linear-gradient(135deg,#7c3aed,#a78bfa)}
+    .avatar.sp{background:linear-gradient(135deg,#10b981,#34d399)}
+    .avatar.sk{background:linear-gradient(135deg,#f472b6,#fb7185)}
+    .meta{flex:1}
+    .meta h3{margin:0 0 6px;font-size:1.05rem}
+    .role{color:var(--muted);font-size:0.88rem;margin-bottom:8px}
+    .blurb{margin:0 0 10px;color:#334155}
+    .tags{display:flex;flex-wrap:wrap;gap:8px}
+    .tag{font-size:0.78rem;padding:6px 8px;border-radius:999px;background:linear-gradient(90deg,rgba(124,58,237,0.08),rgba(6,182,212,0.06));color:#5b21b6}
+    .tag.project{background:linear-gradient(90deg,rgba(6,182,212,0.08),rgba(59,130,246,0.06));color:#0369a1}
+    .footer{max-width:1100px;margin:0 auto 48px;padding:0 20px;text-align:center;color:var(--muted);font-size:0.9rem}
+    a.person-link{color:inherit;text-decoration:none}
+    @media (max-width:560px){header{padding:2rem 1rem} .wrap{margin-top:12px}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>People & Topics</h1>
+    <p>Quick glance at people in your vault and the main topics found in their connected snippets.</p>
+  </header>
+
+  <!-- Foldable comment pane: shows what the user asked, the plan and how it was executed -->
+  <div style="max-width:1100px;margin:18px auto 0;padding:0 20px;">
+    <details class="note-pane" open style="background:rgba(2,6,23,0.03);border-radius:10px;padding:12px 14px;box-shadow:0 6px 18px rgba(12,15,25,0.03);">
+      <summary style="font-weight:600;cursor:pointer;margin:0 0 6px;">How this page was created — click to expand</summary>
+      <div style="color:#0f172a;font-size:0.95rem;line-height:1.45">
+        <p><strong>User request (brief):</strong> "Take all persons in <code>data-md/people</code>, make a <code>ppl.html</code> showing each person with the main topics found in their connected snippets (use wikilinks in the last heading). Make the page modern, bright and inviting."</p>
+
+        <p><strong>Planning (chat):</strong> I created a small todo plan, then collected the person files and snippet files to determine the mapping from people → topics. The core steps were:</p>
+        <ul>
+          <li>Read all contact/person files under <code>data-md/people</code>.</li>
+          <li>List and read snippet files under <code>data-md/snippets</code>.</li>
+          <li>For each snippet, extract wikilinks found in the last heading/"Related" or references section and use those as topics.</li>
+          <li>Map snippets to people when the snippet references a person (via frontmatter <code>people</code> or wikilink in the content).</li>
+          <li>Generate a compact HTML page with one card per person showing role, a short blurb, and a few topic tags. Use fallbacks to person metadata when snippets lacked topics.</li>
+        </ul>
+
+        <p><strong>Execution (what was done):</strong> I parsed the repository files and created <code>context-tool/data-md/people/ppl.html</code>. Concretely:</p>
+        <ul>
+          <li>Read person markdowns (e.g., <code>emma-rodriguez.md</code>, <code>sarah-mitchell.md</code>, etc.).</li>
+          <li>Fetched snippet files and inspected their frontmatter and content to find wikilinks and the "Related"/references section.</li>
+          <li>Extracted topics from snippet wikilinks where present; when snippets had no topics, used the person file's related links/tags as a fallback to keep cards informative.</li>
+          <li>Built a responsive card-based layout with colorful avatars, short blurbs, and topic chips. The page is static and located at the path above.</li>
+        </ul>
+
+        <p><strong>Files changed:</strong> Added <code>data-md/people/ppl.html</code> (static HTML view).</p>
+
+        <p><strong>Notes & next steps:</strong> I can (a) make a small Python generator script to regenerate this page automatically, (b) switch to strict-only-snippet-topics (no fallbacks), or (c) add interactivity (tag filtering, counts, links to snippets). Tell me which and I will implement it.</p>
+      </div>
+    </details>
+  </div>
+
+  <main class="wrap">
+
+    <!-- Emma Rodriguez -->
+    <article class="card">
+      <div class="avatar er">ER</div>
+      <div class="meta">
+        <a class="person-link" href="./emma-rodriguez.md"><h3>Emma Rodriguez</h3></a>
+        <div class="role">Frontend Lead</div>
+        <p class="blurb">Frontend lead responsible for all UI/UX development and design systems.</p>
+        <div class="tags">
+          <span class="tag">Context Tool</span>
+          <span class="tag">React</span>
+          <span class="tag">TypeScript</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Jerker Montelius -->
+    <article class="card">
+      <div class="avatar jm">JM</div>
+      <div class="meta">
+        <a class="person-link" href="./jerker-montelius.md"><h3>Jerker Montelius</h3></a>
+        <div class="role">Developer / DevEx</div>
+        <p class="blurb">DevEx colleague focused on JS, documentation and knowledge sharing.</p>
+        <div class="tags">
+          <span class="tag">Documentation</span>
+          <span class="tag">Knowledge Sharing</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- John Chen -->
+    <article class="card">
+      <div class="avatar jc">JC</div>
+      <div class="meta">
+        <a class="person-link" href="./john-chen.md"><h3>John Chen</h3></a>
+        <div class="role">Backend Developer</div>
+        <p class="blurb">Backend developer specializing in database optimization and caching strategies.</p>
+        <div class="tags">
+          <span class="tag project">Context Tool</span>
+          <span class="tag">Redis</span>
+          <span class="tag">SQLite</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Sarah Mitchell -->
+    <article class="card">
+      <div class="avatar sm">SM</div>
+      <div class="meta">
+        <a class="person-link" href="./sarah-mitchell.md"><h3>Sarah Mitchell</h3></a>
+        <div class="role">Auth Team Lead</div>
+        <p class="blurb">Auth Team Lead responsible for authentication and security infrastructure.</p>
+        <div class="tags">
+          <span class="tag">OAuth</span>
+          <span class="tag">JWT</span>
+          <span class="tag">Mobile Auth</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Simone Pierick -->
+    <article class="card">
+      <div class="avatar sp">SP</div>
+      <div class="meta">
+        <a class="person-link" href="./simone-pierick.md"><h3>Simone Pierick</h3></a>
+        <div class="role">Contact</div>
+        <p class="blurb">Simone Pierick — no detailed snippets yet.</p>
+        <div class="tags">
+          <span class="tag">New Contact</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Stefan Krona -->
+    <article class="card">
+      <div class="avatar sk">SK</div>
+      <div class="meta">
+        <a class="person-link" href="./stefan-krona.md"><h3>Stefan Krona</h3></a>
+        <div class="role">Developer</div>
+        <p class="blurb">Developer working on TerminAI, a Linux LLM interface project.</p>
+        <div class="tags">
+          <span class="tag">TerminAI</span>
+          <span class="tag">LLM</span>
+          <span class="tag">Linux</span>
+        </div>
+      </div>
+    </article>
+
+  </main>
+
+  <div class="footer">Generated view of people and their main topics (extracted from snippets' last-heading wikilinks where available). If you want different topic heuristics, I can update the page to show counts or only technical topics.</div>
+</body>
+</html>

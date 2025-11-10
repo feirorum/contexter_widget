@@ -2,14 +2,16 @@
 
 ## Running the Application
 
-### Quick Start (Without Semantic Search)
+### Quick Start (Semantic Search Disabled by Default)
 
 ```bash
 # Install minimal dependencies
 ./venv/bin/pip install -r requirements-minimal.txt
 
 # Run the application (must use venv python)
-./venv/bin/python3 main.py --no-semantic
+./venv/bin/python3 main.py
+
+# Need embeddings? Add --local-semantic to enable them.
 ```
 
 ### With Semantic Search (Requires ~3GB download)
@@ -18,8 +20,8 @@
 # Install all dependencies (includes PyTorch and sentence-transformers)
 ./venv/bin/pip install -r requirements.txt
 
-# Run the application
-./venv/bin/python3 main.py
+# Run the application with semantic search enabled
+./venv/bin/python3 main.py --local-semantic
 ```
 
 ## Access the Application
@@ -30,15 +32,15 @@ Once running, open your browser to: **http://localhost:8000**
 
 ```bash
 ./venv/bin/python3 main.py --help
-./venv/bin/python3 main.py --no-semantic          # Skip semantic search (faster)
+./venv/bin/python3 main.py --local-semantic       # Enable semantic search (slower startup, downloads models)
 ./venv/bin/python3 main.py --system-mode          # Enable system-wide clipboard monitoring
 ./venv/bin/python3 main.py --mode widget          # Desktop widget mode (NEW!)
 ./venv/bin/python3 main.py --port 8080            # Use different port
 ./venv/bin/python3 main.py --data-dir ./my-data   # Use custom data directory
 
 # Combine flags
-./venv/bin/python3 main.py --no-semantic --system-mode
-./venv/bin/python3 main.py --no-semantic --mode widget
+./venv/bin/python3 main.py --local-semantic --system-mode
+./venv/bin/python3 main.py --local-semantic --mode widget
 ```
 
 ## System-Wide Monitoring Mode
@@ -47,7 +49,8 @@ When you enable `--system-mode`, the Context Tool will monitor your system clipb
 
 1. Start the server with system mode:
    ```bash
-   ./venv/bin/python3 main.py --no-semantic --system-mode
+   ./venv/bin/python3 main.py --system-mode
+   # Add --local-semantic if you need embeddings.
    ```
 
 2. Open the web UI at http://localhost:8000
@@ -240,7 +243,8 @@ Perfect for:
 The widget mode provides a native desktop UI with clipboard monitoring:
 
 ```bash
-./venv/bin/python3 main.py --mode widget --no-semantic
+./venv/bin/python3 main.py --mode widget
+# Optional: add --local-semantic to enable embeddings.
 ```
 
 ### Features:
@@ -258,7 +262,7 @@ The widget mode provides a native desktop UI with clipboard monitoring:
 - 🔝 **Always on Top** - Widget stays on top of other windows
 
 ### How it works:
-1. Start widget mode: `./venv/bin/python3 main.py --mode widget --no-semantic`
+1. Start widget mode: `./venv/bin/python3 main.py --mode widget` (add `--local-semantic` if needed)
 2. A desktop window appears (initially empty)
 3. **Copy any text anywhere** on your system (Ctrl+C)
 4. Widget instantly shows:
@@ -285,7 +289,10 @@ The Context Tool now supports **Obsidian-compatible markdown files** as an alter
 
 ```bash
 # Use markdown data format (automatically uses config-markdown.yaml)
-./venv/bin/python3 main.py --mode widget --no-semantic --markdown
+./venv/bin/python3 main.py --mode widget --markdown
+
+# Enable semantic search in markdown mode (optional, slower)
+# ./venv/bin/python3 main.py --mode widget --markdown --local-semantic
 
 # The --markdown flag automatically:
 # 1. Selects config-markdown.yaml (if exists)
@@ -440,7 +447,7 @@ See `PERSON_NAME_MATCHING_FIX.md` for details.
 
 - Must use `./venv/bin/python3` to access installed packages
 - Semantic search requires large dependencies (PyTorch ~900MB, CUDA libraries ~2GB)
-- For quick testing, use `--no-semantic` flag
+- For quick testing, just skip `--local-semantic` (semantic search stays disabled)
 - The minimal requirements file skips heavy ML dependencies
 - Widget mode requires `tkinter` (usually included with Python) and `pyperclip`
 - Both YAML (`data/`) and Markdown (`data-md/`) formats are supported

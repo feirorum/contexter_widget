@@ -28,24 +28,24 @@ Uses `all-MiniLM-L6-v2` by default:
 
 ## Installation
 
-### With Semantic Search (Recommended)
+### With Semantic Search (Recommended when you need it)
 
 ```bash
 # Install full dependencies (includes PyTorch ~900MB)
 ./venv/bin/pip install -r requirements.txt
 
 # Run with semantic search enabled
-./venv/bin/python3 main.py
+./venv/bin/python3 main.py --local-semantic
 ```
 
-### Without Semantic Search (Faster startup)
+### Without Semantic Search (Default, faster startup)
 
 ```bash
 # Install minimal dependencies
 ./venv/bin/pip install -r requirements-minimal.txt
 
-# Run without semantic search
-./venv/bin/python3 main.py --no-semantic
+# Run without semantic search (default behavior)
+./venv/bin/python3 main.py
 ```
 
 ## Usage Examples

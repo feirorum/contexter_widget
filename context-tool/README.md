@@ -178,7 +178,7 @@ Options:
   --port PORT           Web server port (default: 8000)
   --host HOST           Web server host (default: localhost)
   --data-dir DIR        Data directory (default: ./data)
-  --no-semantic         Disable semantic search
+  --local-semantic      Enable semantic search (disabled by default to avoid long model downloads)
 ```
 
 ### Running Tests

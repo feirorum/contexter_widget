@@ -42,7 +42,7 @@ def get_default_config() -> dict:
             'auto_load': True
         },
         'semantic_search': {
-            'enabled': True,
+            'enabled': False,  # opt-in to avoid long model downloads by default
             'model': 'all-MiniLM-L6-v2',
             'similarity_threshold': 0.5
         },
@@ -85,9 +85,9 @@ def main():
         help='Directory containing YAML data files (default: ./data)'
     )
     parser.add_argument(
-        '--no-semantic',
+        '--local-semantic',
         action='store_true',
-        help='Disable semantic search (faster startup)'
+        help='Enable local semantic search (disabled by default for faster startup)'
     )
     parser.add_argument(
         '--system-mode',
@@ -147,8 +147,8 @@ def main():
         config['ui']['host'] = args.host
     if args.data_dir:
         config['data']['directory'] = args.data_dir
-    if args.no_semantic:
-        config['semantic_search']['enabled'] = False
+    if args.local_semantic:
+        config['semantic_search']['enabled'] = True
 
     # Get configuration values
     data_dir = data_dir_to_check  # Already validated above

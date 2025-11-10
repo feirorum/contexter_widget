@@ -12,7 +12,7 @@ data:
   format: markdown  # Use markdown files instead of YAML
 
 semantic_search:
-  enabled: true
+  enabled: false
   model: all-MiniLM-L6-v2
   similarity_threshold: 0.5
 

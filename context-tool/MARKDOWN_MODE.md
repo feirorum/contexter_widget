@@ -6,10 +6,13 @@ To use markdown data instead of YAML, add the `--markdown` flag:
 
 ```bash
 # Web mode
-./venv/bin/python3 main.py --markdown --no-semantic
+./venv/bin/python3 main.py --markdown
 
 # Widget mode (recommended for testing)
-./venv/bin/python3 main.py --mode widget --markdown --no-semantic
+./venv/bin/python3 main.py --mode widget --markdown
+
+# Enable embeddings (optional, slower startup)
+# ./venv/bin/python3 main.py --markdown --local-semantic
 ```
 
 When you use `--markdown`, the app automatically:

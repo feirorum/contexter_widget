@@ -11,7 +11,7 @@ data:
   auto_load: true
 
 semantic_search:
-  enabled: true
+  enabled: false
   model: all-MiniLM-L6-v2
   similarity_threshold: 0.5
 
