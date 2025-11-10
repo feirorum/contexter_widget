@@ -19,12 +19,18 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1800px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 0fr;
             gap: 20px;
             height: calc(100vh - 40px);
+            transition: grid-template-columns 0.3s ease;
+            position: relative;
+        }
+
+        .container.third-pane-open {
+            grid-template-columns: 1fr 1fr 380px;
         }
 
         .panel {
@@ -388,6 +394,309 @@
             margin-top: 12px;
             flex-wrap: wrap;
         }
+
+        /* Third pane styles */
+        #favouritesPane {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        #favouritesPane.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .favourites-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .favourites-header h1 {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .favourites-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        #toggleFavourites {
+            position: fixed;
+            right: 30px;
+            top: 30px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        #toggleFavourites:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+            transform: scale(1.05);
+        }
+
+        .project-selector {
+            margin-bottom: 20px;
+        }
+
+        .project-selector label {
+            display: block;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .project-selector select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .project-selector select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .favourites-list {
+            margin-bottom: 24px;
+        }
+
+        .favourites-list h3 {
+            color: #667eea;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .favourite-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .favourite-item:hover {
+            background: #e8eaf6;
+            border-color: #667eea;
+        }
+
+        .favourite-item .icon {
+            font-size: 16px;
+        }
+
+        .favourite-item .name {
+            flex: 1;
+        }
+
+        .favourite-item .remove-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .favourite-item .remove-btn:hover {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .notes-manager {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .notes-manager h3 {
+            color: #667eea;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 12px;
+            padding-left: 36px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-box .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+        }
+
+        .notes-tree {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .note-category {
+            margin-bottom: 12px;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .category-header:hover {
+            background: #e8eaf6;
+        }
+
+        .category-header .arrow {
+            transition: transform 0.2s;
+        }
+
+        .category-header.collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+
+        .category-items {
+            margin-top: 6px;
+            margin-left: 20px;
+        }
+
+        .category-items.hidden {
+            display: none;
+        }
+
+        .note-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            font-size: 13px;
+            color: #666;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .note-item:hover {
+            background: #f8f9fa;
+        }
+
+        .note-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .note-item.is-favourite {
+            background: #fff3cd;
+        }
+
+        .note-item .star-icon {
+            color: #ffc107;
+            font-size: 12px;
+        }
+
+        .empty-favourites {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* Type badges */
+        .type-person { color: #2196f3; }
+        .type-snippet { color: #4caf50; }
+        .type-project { color: #9c27b0; }
+        .type-abbreviation { color: #ff9800; }
+
+        /* Scrollbar styling */
+        .favourites-content::-webkit-scrollbar,
+        .notes-tree::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .favourites-content::-webkit-scrollbar-track,
+        .notes-tree::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .favourites-content::-webkit-scrollbar-thumb,
+        .notes-tree::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        .favourites-content::-webkit-scrollbar-thumb:hover,
+        .notes-tree::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body>
@@ -475,7 +784,58 @@
                 </div>
             </div>
         </div>
+
+        <!-- Third Panel: Favourites -->
+        <div id="favouritesPane">
+            <div class="favourites-header">
+                <h1>⭐ Favourites</h1>
+            </div>
+            <div class="favourites-content">
+                <!-- Project Selector -->
+                <div class="project-selector">
+                    <label for="projectSelect">Select Project:</label>
+                    <select id="projectSelect">
+                        <option value="">-- Select a project --</option>
+                    </select>
+                </div>
+
+                <!-- Current Favourites List -->
+                <div class="favourites-list">
+                    <h3>📌 Current Favourites</h3>
+                    <div id="favouritesList">
+                        <div class="empty-favourites">
+                            Select a project to view its favourites
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes Manager -->
+                <div class="notes-manager">
+                    <h3>📋 Add / Remove Notes</h3>
+
+                    <!-- Search Box -->
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input
+                            type="text"
+                            id="notesSearch"
+                            placeholder="Search notes..."
+                        />
+                    </div>
+
+                    <!-- Notes Tree -->
+                    <div id="notesTree" class="notes-tree">
+                        <div class="loading">Loading notes...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Toggle Button -->
+    <button id="toggleFavourites" title="Toggle Favourites Panel">
+        ⭐
+    </button>
 
     <!-- Save Dialog Modal -->
     <div id="saveModal">

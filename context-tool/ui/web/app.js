@@ -973,3 +973,415 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// ============================================================================
+// FAVOURITES PANE FUNCTIONALITY
+// ============================================================================
+
+let favouritesState = {
+    isOpen: false,
+    selectedProject: null,
+    currentFavourites: [],
+    notesHierarchy: null,
+    searchQuery: ''
+};
+
+// Initialize favourites pane
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load saved state from localStorage
+    loadFavouritesState();
+
+    // Set up toggle button
+    const toggleBtn = document.getElementById('toggleFavourites');
+    toggleBtn.addEventListener('click', toggleFavouritesPane);
+
+    // Set up project selector
+    const projectSelect = document.getElementById('projectSelect');
+    projectSelect.addEventListener('change', handleProjectChange);
+
+    // Set up search
+    const searchInput = document.getElementById('notesSearch');
+    searchInput.addEventListener('input', handleNotesSearch);
+
+    // Load projects and notes hierarchy
+    await loadProjects();
+    await loadNotesHierarchy();
+
+    // Apply saved state
+    if (favouritesState.isOpen) {
+        toggleFavouritesPane();
+    }
+
+    if (favouritesState.selectedProject) {
+        projectSelect.value = favouritesState.selectedProject;
+        await loadProjectFavourites(favouritesState.selectedProject);
+    }
+});
+
+// Load state from localStorage
+function loadFavouritesState() {
+    const saved = localStorage.getItem('favouritesState');
+    if (saved) {
+        try {
+            const state = JSON.parse(saved);
+            favouritesState.isOpen = state.isOpen || false;
+            favouritesState.selectedProject = state.selectedProject || null;
+        } catch (e) {
+            console.error('Failed to load favourites state:', e);
+        }
+    }
+}
+
+// Save state to localStorage
+function saveFavouritesState() {
+    localStorage.setItem('favouritesState', JSON.stringify({
+        isOpen: favouritesState.isOpen,
+        selectedProject: favouritesState.selectedProject
+    }));
+}
+
+// Toggle favourites pane visibility
+function toggleFavouritesPane() {
+    const container = document.querySelector('.container');
+    const pane = document.getElementById('favouritesPane');
+    const toggleBtn = document.getElementById('toggleFavourites');
+
+    favouritesState.isOpen = !favouritesState.isOpen;
+
+    if (favouritesState.isOpen) {
+        container.classList.add('third-pane-open');
+        pane.classList.add('visible');
+        toggleBtn.textContent = '✕';
+        toggleBtn.title = 'Close Favourites Panel';
+    } else {
+        container.classList.remove('third-pane-open');
+        pane.classList.remove('visible');
+        toggleBtn.textContent = '⭐';
+        toggleBtn.title = 'Open Favourites Panel';
+    }
+
+    saveFavouritesState();
+}
+
+// Load projects into selector
+async function loadProjects() {
+    try {
+        const response = await fetch(`${API_BASE}/projects`);
+        if (!response.ok) throw new Error('Failed to load projects');
+
+        const projects = await response.json();
+        const select = document.getElementById('projectSelect');
+
+        // Clear existing options except first
+        select.innerHTML = '<option value="">-- Select a project --</option>';
+
+        projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.name;
+            option.textContent = project.name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading projects:', error);
+    }
+}
+
+// Load notes hierarchy
+async function loadNotesHierarchy() {
+    try {
+        const response = await fetch(`${API_BASE}/notes/hierarchy`);
+        if (!response.ok) throw new Error('Failed to load notes hierarchy');
+
+        favouritesState.notesHierarchy = await response.json();
+        renderNotesTree();
+    } catch (error) {
+        console.error('Error loading notes hierarchy:', error);
+        document.getElementById('notesTree').innerHTML =
+            '<div class="empty-state">Failed to load notes</div>';
+    }
+}
+
+// Handle project selection change
+async function handleProjectChange(event) {
+    const projectName = event.target.value;
+    favouritesState.selectedProject = projectName;
+    saveFavouritesState();
+
+    if (projectName) {
+        await loadProjectFavourites(projectName);
+    } else {
+        // Clear favourites display
+        document.getElementById('favouritesList').innerHTML =
+            '<div class="empty-favourites">Select a project to view its favourites</div>';
+        favouritesState.currentFavourites = [];
+        renderNotesTree();
+    }
+}
+
+// Load favourites for a project
+async function loadProjectFavourites(projectName) {
+    try {
+        const response = await fetch(`${API_BASE}/project/${encodeURIComponent(projectName)}/favourites`);
+        if (!response.ok) throw new Error('Failed to load favourites');
+
+        const data = await response.json();
+        favouritesState.currentFavourites = data.favourites || [];
+        renderFavouritesList();
+        renderNotesTree(); // Re-render to update checkboxes
+    } catch (error) {
+        console.error('Error loading favourites:', error);
+        document.getElementById('favouritesList').innerHTML =
+            '<div class="empty-favourites">Failed to load favourites</div>';
+    }
+}
+
+// Render favourites list
+function renderFavouritesList() {
+    const container = document.getElementById('favouritesList');
+
+    if (favouritesState.currentFavourites.length === 0) {
+        container.innerHTML = '<div class="empty-favourites">No favourites yet. Add some below!</div>';
+        return;
+    }
+
+    container.innerHTML = favouritesState.currentFavourites.map(fav => {
+        const type = guessTypeFromName(fav);
+        const icon = getIconForType(type);
+
+        return `
+            <div class="favourite-item" data-name="${escapeHtml(fav)}">
+                <span class="icon type-${type}">${icon}</span>
+                <span class="name">${escapeHtml(fav)}</span>
+                <button class="remove-btn" onclick="removeFavourite('${escapeHtml(fav)}')">×</button>
+            </div>
+        `;
+    }).join('');
+}
+
+// Guess type from name (simple heuristic)
+function guessTypeFromName(name) {
+    const hierarchy = favouritesState.notesHierarchy;
+    if (!hierarchy) return 'snippet';
+
+    // Check people
+    if (hierarchy.people.some(p => p.name === name)) return 'person';
+
+    // Check projects
+    if (hierarchy.projects.some(p => p.name === name)) return 'project';
+
+    // Check abbreviations
+    for (const category in hierarchy.abbreviations) {
+        if (hierarchy.abbreviations[category].some(a => a.name === name)) {
+            return 'abbreviation';
+        }
+    }
+
+    // Default to snippet
+    return 'snippet';
+}
+
+// Get icon for type
+function getIconForType(type) {
+    const icons = {
+        person: '👤',
+        snippet: '📝',
+        project: '📁',
+        abbreviation: '🔤'
+    };
+    return icons[type] || '📄';
+}
+
+// Remove favourite
+async function removeFavourite(name) {
+    if (!favouritesState.selectedProject) return;
+
+    try {
+        const response = await fetch(
+            `${API_BASE}/project/${encodeURIComponent(favouritesState.selectedProject)}/favourites/${encodeURIComponent(name)}`,
+            { method: 'DELETE' }
+        );
+
+        if (!response.ok) throw new Error('Failed to remove favourite');
+
+        // Update local state
+        favouritesState.currentFavourites = favouritesState.currentFavourites.filter(f => f !== name);
+        renderFavouritesList();
+        renderNotesTree(); // Update checkboxes
+    } catch (error) {
+        console.error('Error removing favourite:', error);
+        alert('Failed to remove favourite: ' + error.message);
+    }
+}
+
+// Add favourite
+async function addFavourite(name) {
+    if (!favouritesState.selectedProject) {
+        alert('Please select a project first');
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${API_BASE}/project/${encodeURIComponent(favouritesState.selectedProject)}/favourites/add`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ favourite: name })
+            }
+        );
+
+        if (!response.ok) throw new Error('Failed to add favourite');
+
+        // Update local state
+        if (!favouritesState.currentFavourites.includes(name)) {
+            favouritesState.currentFavourites.push(name);
+            renderFavouritesList();
+            renderNotesTree(); // Update checkboxes
+        }
+    } catch (error) {
+        console.error('Error adding favourite:', error);
+        alert('Failed to add favourite: ' + error.message);
+    }
+}
+
+// Render notes tree
+function renderNotesTree() {
+    const container = document.getElementById('notesTree');
+    const hierarchy = favouritesState.notesHierarchy;
+
+    if (!hierarchy) {
+        container.innerHTML = '<div class="loading">Loading notes...</div>';
+        return;
+    }
+
+    const searchQuery = favouritesState.searchQuery.toLowerCase();
+    let html = '';
+
+    // Helper to check if item matches search
+    const matchesSearch = (name) => {
+        return !searchQuery || name.toLowerCase().includes(searchQuery);
+    };
+
+    // Render people
+    const peopleItems = hierarchy.people.filter(p => matchesSearch(p.name));
+    if (peopleItems.length > 0) {
+        html += renderCategory('People', '👤', peopleItems, 'person');
+    }
+
+    // Render snippets
+    const snippetItems = hierarchy.snippets.filter(s => matchesSearch(s.name));
+    if (snippetItems.length > 0) {
+        html += renderCategory('Snippets', '📝', snippetItems, 'snippet');
+    }
+
+    // Render projects
+    const projectItems = hierarchy.projects.filter(p => matchesSearch(p.name));
+    if (projectItems.length > 0) {
+        html += renderCategory('Projects', '📁', projectItems, 'project');
+    }
+
+    // Render abbreviations (grouped by category)
+    let abbrHtml = '';
+    for (const category in hierarchy.abbreviations) {
+        const items = hierarchy.abbreviations[category].filter(a => matchesSearch(a.name));
+        if (items.length > 0) {
+            abbrHtml += renderSubcategory(category, items, 'abbreviation');
+        }
+    }
+    if (abbrHtml) {
+        html += `
+            <div class="note-category">
+                <div class="category-header" onclick="toggleCategory(this)">
+                    <span class="arrow">▼</span>
+                    <span>🔤 Abbreviations</span>
+                </div>
+                <div class="category-items">
+                    ${abbrHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html || '<div class="empty-state">No notes found</div>';
+}
+
+// Render category
+function renderCategory(title, icon, items, type) {
+    const itemsHtml = items.map(item => renderNoteItem(item.name, type)).join('');
+
+    return `
+        <div class="note-category">
+            <div class="category-header" onclick="toggleCategory(this)">
+                <span class="arrow">▼</span>
+                <span>${icon} ${title}</span>
+            </div>
+            <div class="category-items">
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Render subcategory (for abbreviations)
+function renderSubcategory(title, items, type) {
+    const itemsHtml = items.map(item => renderNoteItem(item.name, type)).join('');
+
+    return `
+        <div class="note-category" style="margin-left: 12px;">
+            <div class="category-header" onclick="toggleCategory(this)" style="font-size: 13px;">
+                <span class="arrow">▼</span>
+                <span>${title}</span>
+            </div>
+            <div class="category-items">
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Render note item
+function renderNoteItem(name, type) {
+    const isFavourite = favouritesState.currentFavourites.includes(name);
+    const checked = isFavourite ? 'checked' : '';
+    const favouriteClass = isFavourite ? 'is-favourite' : '';
+    const star = isFavourite ? '<span class="star-icon">★</span>' : '';
+
+    return `
+        <div class="note-item ${favouriteClass}">
+            <input
+                type="checkbox"
+                ${checked}
+                onchange="handleNoteToggle('${escapeHtml(name)}')"
+                ${!favouritesState.selectedProject ? 'disabled' : ''}
+            />
+            <span class="type-${type}">${escapeHtml(name)}</span>
+            ${star}
+        </div>
+    `;
+}
+
+// Toggle category expansion
+function toggleCategory(headerElement) {
+    headerElement.classList.toggle('collapsed');
+    const items = headerElement.nextElementSibling;
+    items.classList.toggle('hidden');
+}
+
+// Handle note checkbox toggle
+async function handleNoteToggle(name) {
+    if (!favouritesState.selectedProject) return;
+
+    const isFavourite = favouritesState.currentFavourites.includes(name);
+
+    if (isFavourite) {
+        await removeFavourite(name);
+    } else {
+        await addFavourite(name);
+    }
+}
+
+// Handle notes search
+function handleNotesSearch(event) {
+    favouritesState.searchQuery = event.target.value;
+    renderNotesTree();
+}

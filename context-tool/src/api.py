@@ -14,6 +14,7 @@ from .pattern_matcher import PatternMatcher
 from .action_suggester import ActionSuggester
 from .context_analyzer import ContextAnalyzer
 from .saver import SmartSaver
+from .favourites_manager import FavouritesManager
 
 # Optional import for semantic search
 try:
@@ -60,6 +61,7 @@ saver: Optional[SmartSaver] = None
 system_monitor: Optional[Any] = None
 app_data_dir: Optional[Path] = None
 app_use_markdown: bool = False
+favourites_manager: Optional[FavouritesManager] = None
 
 
 # WebSocket connection manager
@@ -115,11 +117,16 @@ def initialize_app(
         enable_semantic: Whether to enable semantic search
         use_markdown: Whether to load markdown files instead of YAML
     """
-    global db, analyzer, saver, app_data_dir, app_use_markdown
+    global db, analyzer, saver, app_data_dir, app_use_markdown, favourites_manager
 
     # Store global config
     app_data_dir = Path(data_dir)
     app_use_markdown = use_markdown
+
+    # Initialize favourites manager (for markdown mode)
+    if use_markdown:
+        favourites_manager = FavouritesManager(app_data_dir)
+        print(f"⭐ Favourites manager initialized")
 
     # Initialize database
     database = get_database(db_path)
@@ -543,6 +550,197 @@ async def save_smart(request: SaveSmartPerformRequest):
                 "status": "error",
                 "message": "Failed to save"
             }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Favourites endpoints
+@app.get("/api/notes/hierarchy")
+async def get_notes_hierarchy():
+    """
+    Get all notes organized hierarchically by type and category
+
+    Returns:
+        Hierarchical structure of all notes
+    """
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    try:
+        hierarchy = {
+            "people": [],
+            "snippets": [],
+            "projects": [],
+            "abbreviations": {}
+        }
+
+        # Get all people
+        cursor = db.execute("SELECT id, name, email, role FROM contacts ORDER BY name")
+        for row in cursor.fetchall():
+            hierarchy["people"].append({
+                "id": row["id"],
+                "name": row["name"],
+                "email": row["email"],
+                "role": row["role"],
+                "type": "person"
+            })
+
+        # Get all snippets
+        cursor = db.execute("SELECT id, text, saved_date, metadata FROM snippets ORDER BY saved_date DESC")
+        for row in cursor.fetchall():
+            import json
+            metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+            title = metadata.get("title", f"Snippet {row['id']}")
+            hierarchy["snippets"].append({
+                "id": row["id"],
+                "name": title,
+                "date": row["saved_date"],
+                "type": "snippet"
+            })
+
+        # Get all projects
+        cursor = db.execute("SELECT id, name, status FROM projects ORDER BY name")
+        for row in cursor.fetchall():
+            hierarchy["projects"].append({
+                "id": row["id"],
+                "name": row["name"],
+                "status": row["status"],
+                "type": "project"
+            })
+
+        # Get all abbreviations grouped by category
+        cursor = db.execute("SELECT id, abbr, full, category FROM abbreviations ORDER BY category, abbr")
+        for row in cursor.fetchall():
+            category = row["category"] or "General"
+            if category not in hierarchy["abbreviations"]:
+                hierarchy["abbreviations"][category] = []
+
+            hierarchy["abbreviations"][category].append({
+                "id": row["id"],
+                "name": row["abbr"],
+                "full": row["full"],
+                "category": category,
+                "type": "abbreviation"
+            })
+
+        return hierarchy
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/project/{project_name}/favourites")
+async def get_project_favourites(project_name: str):
+    """
+    Get favourites for a specific project
+
+    Args:
+        project_name: Name of the project
+
+    Returns:
+        List of favourite wikilinks
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Favourites only available in markdown mode")
+
+    try:
+        favourites = favourites_manager.parse_favourites(project_name)
+        return {
+            "project": project_name,
+            "favourites": favourites
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class UpdateFavouritesRequest(BaseModel):
+    favourites: List[str]
+
+
+@app.post("/api/project/{project_name}/favourites")
+async def update_project_favourites(project_name: str, request: UpdateFavouritesRequest):
+    """
+    Update favourites for a specific project
+
+    Args:
+        project_name: Name of the project
+        request: List of favourite wikilinks
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Favourites only available in markdown mode")
+
+    try:
+        success = favourites_manager.update_favourites(project_name, request.favourites)
+        if success:
+            return {
+                "status": "success",
+                "message": f"Updated favourites for {project_name}",
+                "favourites": request.favourites
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class AddFavouriteRequest(BaseModel):
+    favourite: str
+
+
+@app.post("/api/project/{project_name}/favourites/add")
+async def add_project_favourite(project_name: str, request: AddFavouriteRequest):
+    """
+    Add a single favourite to a project
+
+    Args:
+        project_name: Name of the project
+        request: Favourite wikilink to add
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Favourites only available in markdown mode")
+
+    try:
+        success = favourites_manager.add_favourite(project_name, request.favourite)
+        if success:
+            return {
+                "status": "success",
+                "message": f"Added favourite to {project_name}"
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/project/{project_name}/favourites/{favourite}")
+async def remove_project_favourite(project_name: str, favourite: str):
+    """
+    Remove a favourite from a project
+
+    Args:
+        project_name: Name of the project
+        favourite: Favourite wikilink to remove
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Favourites only available in markdown mode")
+
+    try:
+        success = favourites_manager.remove_favourite(project_name, favourite)
+        if success:
+            return {
+                "status": "success",
+                "message": f"Removed favourite from {project_name}"
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
