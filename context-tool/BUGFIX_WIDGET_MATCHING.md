@@ -98,7 +98,8 @@ NEW WAY: ✓ FOUND: LLM (Fixed!)
 To test widget mode now works:
 
 ```bash
-./venv/bin/python3 main.py --mode widget --markdown --no-semantic
+./venv/bin/python3 main.py --mode widget --markdown
+# Optional: add --local-semantic to enable embeddings.
 ```
 
 Then copy:

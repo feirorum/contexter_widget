@@ -254,9 +254,19 @@ results = searcher.find_similar('authentication tokens', limit=3)
 
 ## Usage Examples
 
-### Normal Startup
+### Normal Startup (default, semantic search disabled)
 ```bash
 ./venv/bin/python3 main.py --markdown
+```
+Shows:
+- ✅ Parameter validation
+- ✅ Data loading progress
+- ✅ Server startup info
+- (Add `--local-semantic` to also see semantic initialization + embeddings)
+
+### Semantic Search Enabled
+```bash
+./venv/bin/python3 main.py --markdown --local-semantic
 ```
 Shows:
 - ✅ Parameter validation
@@ -264,16 +274,6 @@ Shows:
 - ✅ Semantic search initialization
 - ✅ Embedding generation progress
 - ✅ Server startup info
-
-### Quick Mode (No Semantic Search)
-```bash
-./venv/bin/python3 main.py --markdown --no-semantic
-```
-Shows:
-- ✅ Parameter validation
-- ✅ Data loading progress
-- ✅ Server startup info
-- (Skips semantic search - much faster)
 
 ### Widget Mode
 ```bash

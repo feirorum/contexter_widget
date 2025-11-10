@@ -93,7 +93,7 @@ Each match shows:
 
 1. **Semantic search not enabled**
    - Check server output for "🔍 Semantic search: enabled"
-   - If you see "disabled", restart without `--no-semantic` flag
+   - If you see "disabled", restart with the `--local-semantic` flag
 
 2. **No embeddings generated**
    - Check for "📊 Generated X embeddings" in server output

@@ -3,7 +3,8 @@
 ## TL;DR
 
 ```bash
-./venv/bin/python3 main.py --mode widget --markdown --no-semantic
+./venv/bin/python3 main.py --mode widget --markdown
+# Need embeddings? Add --local-semantic (slower startup).
 ```
 
 That's it! The app will automatically:

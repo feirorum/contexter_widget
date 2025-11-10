@@ -67,7 +67,16 @@ class ContextAnalyzer:
             semantic_matches = self.semantic.find_similar(selected_text, limit=5)
 
         # 4. Build knowledge graph context
-        related_items = self._get_related_items(exact_matches)
+        exact_match_keys = set()
+        for match in exact_matches:
+            key = self._entity_key(match.get('type'), match.get('data'))
+            if key:
+                exact_match_keys.add(key)
+
+        related_items = self._get_related_items(
+            exact_matches,
+            exclude_keys=exact_match_keys
+        )
 
         # Deduplicate related items as well
         related_items = self._dedupe_entities(related_items)
@@ -332,12 +341,17 @@ class ContextAnalyzer:
 
         return None
 
-    def _get_related_items(self, matches: List[Dict]) -> List[Dict]:
+    def _get_related_items(
+        self,
+        matches: List[Dict],
+        exclude_keys: Optional[set] = None
+    ) -> List[Dict]:
         """
         Get items related to matches via knowledge graph
 
         Args:
             matches: Exact matches found
+            exclude_keys: Optional set of entity keys that should be skipped
 
         Returns:
             List of related items
@@ -362,6 +376,10 @@ class ContextAnalyzer:
                 # Fetch the related entity
                 entity = self._fetch_entity(to_type, to_id)
                 if entity:
+                    key = self._entity_key(to_type, entity)
+                    if exclude_keys and key in exclude_keys:
+                        continue
+
                     related.append({
                         'type': to_type,
                         'data': entity,
@@ -383,6 +401,10 @@ class ContextAnalyzer:
                 # Fetch the related entity
                 entity = self._fetch_entity(from_type, from_id)
                 if entity:
+                    key = self._entity_key(from_type, entity)
+                    if exclude_keys and key in exclude_keys:
+                        continue
+
                     related.append({
                         'type': from_type,
                         'data': entity,
@@ -403,26 +425,37 @@ class ContextAnalyzer:
         deduped = []
 
         for item in items:
-            typ = item.get('type')
-            data = item.get('data', {})
-            key = None
-
-            # Prefer numeric id if present
-            if isinstance(data, dict) and data.get('id') is not None:
-                key = (typ, int(data.get('id')))
-            else:
-                # Fallback to stable serialization
-                try:
-                    key = (typ, json.dumps(data, sort_keys=True))
-                except Exception:
-                    # As a final fallback, use repr
-                    key = (typ, repr(data))
+            key = self._entity_key(item.get('type'), item.get('data', {}))
 
             if key not in seen:
                 seen.add(key)
                 deduped.append(item)
 
         return deduped
+
+    def _entity_key(self, entity_type: Optional[str], data: Any) -> Optional[Tuple[str, Any]]:
+        """
+        Generate a stable key for an entity using type and id (if available).
+
+        Falls back to JSON serialization or repr when no identifier is present.
+        """
+        if not entity_type:
+            return None
+
+        if isinstance(data, dict):
+            entity_id = data.get('id')
+            if entity_id is not None:
+                try:
+                    return (entity_type, int(entity_id))
+                except (TypeError, ValueError):
+                    pass
+
+            try:
+                return (entity_type, json.dumps(data, sort_keys=True))
+            except Exception:
+                return (entity_type, repr(data))
+
+        return (entity_type, repr(data))
 
     def _fetch_entity(self, entity_type: str, entity_id: int) -> Optional[Dict]:
         """Fetch an entity by type and ID"""
