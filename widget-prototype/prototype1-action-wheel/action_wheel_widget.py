@@ -34,6 +34,14 @@ class ActionWheelWidget:
         self.root.overrideredirect(True)  # No window decorations
         self.root.attributes('-topmost', True)
         self.root.attributes('-alpha', 0.95)
+        # Use window-level alpha for translucency (cross-platform)
+        # This gives a global transparency which we can use to simulate
+        # semi-transparent shadows and overlays without per-item alpha.
+        try:
+            self.root.wm_attributes('-alpha', 0.95)
+        except Exception:
+            # wm_attributes may not be supported on some platforms; ignore safely
+            pass
 
         # Modern color scheme with gradients
         self.color_scheme = {
@@ -372,7 +380,7 @@ class ActionWheelWidget:
                     bbox[1] - padding + 2,
                     bbox[2] + padding + 2,
                     bbox[3] + padding + 2,
-                    fill='#00000020',
+                    fill='#333333',
                     outline=''
                 )
 
@@ -489,24 +497,23 @@ class ActionWheelWidget:
         content = tk.Frame(popup, bg="white", padx=20, pady=20)
         content.pack(fill=tk.BOTH, expand=True)
 
-        # Confidence meter
-        if match.get('confidence'):
-            conf_frame = tk.Frame(content, bg='white')
-            conf_frame.pack(fill=tk.X, pady=(0, 10))
+        # Confidence row
+        conf_frame = tk.Frame(content, bg='white')
+        conf_frame.pack(fill=tk.X, pady=(0, 10))
 
-            tk.Label(
-                conf_frame,
-                text=f"Confidence: {int(match['confidence'] * 100)}%",
-                font=self.item_font,
-                bg='white',
-                fg=self.color_scheme['text_secondary']
-            ).pack(side=tk.LEFT)
+        tk.Label(
+            conf_frame,
+            text=f"Confidence: {int(match.get('confidence', 0) * 100)}%",
+            font=self.item_font,
+            bg='white',
+            fg=self.color_scheme['text_secondary']
+        ).pack(side=tk.LEFT)
 
-            # Progress bar
-            conf_bar = tk.Canvas(conf_frame, height=8, bg='#e0e0e0', highlightthickness=0)
-            conf_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
-            bar_width = int(300 * match['confidence'])
-            conf_bar.create_rectangle(0, 0, bar_width, 8, fill=self.color_scheme['project'], outline='')
+        # Progress bar
+        conf_bar = tk.Canvas(conf_frame, height=8, bg='#e0e0e0', highlightthickness=0)
+        conf_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
+        bar_width = int(300 * match.get('confidence', 0))
+        conf_bar.create_rectangle(0, 0, bar_width, 8, fill=self.color_scheme['project'], outline='')
 
         # Details text
         data = match['data']
