@@ -70,11 +70,11 @@ class HotkeyOverlayWidget:
 
         self.colors = self.light_colors
 
-        # Fonts
-        self.title_font = tkfont.Font(family="Helvetica", size=18, weight="bold")
-        self.normal_font = tkfont.Font(family="Helvetica", size=11)
-        self.small_font = tkfont.Font(family="Helvetica", size=9)
-        self.search_font = tkfont.Font(family="Helvetica", size=13)
+        # Modern fonts (Segoe UI for Windows/Linux compatibility)
+        self.title_font = tkfont.Font(family="Segoe UI", size=20, weight="bold")
+        self.normal_font = tkfont.Font(family="Segoe UI", size=11)
+        self.small_font = tkfont.Font(family="Segoe UI", size=9)
+        self.card_title_font = tkfont.Font(family="Segoe UI", size=12, weight="bold")
 
         # Build UI
         self.build_overlay()
@@ -84,24 +84,30 @@ class HotkeyOverlayWidget:
 
     def build_overlay(self):
         """Build the enhanced overlay UI"""
-        # Main dialog (no backdrop - simpler design)
-        self.dialog_width = 850
-        self.dialog_height = 650
+        # Main dialog with modern shadow effect
+        self.dialog_width = 900
+        self.dialog_height = 680
+
+        # Outer frame for shadow simulation
+        outer_frame = tk.Frame(self.root, bg='#d0d0d0')
+        outer_frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
         self.dialog = tk.Frame(
-            self.root,
+            outer_frame,
             bg=self.colors['card_bg'],
-            relief=tk.RAISED,
-            bd=0,
-            highlightthickness=2,
-            highlightbackground=self.colors['primary']
+            relief=tk.FLAT,
+            bd=0
         )
         self.dialog.pack(fill=tk.BOTH, expand=True)
 
-        # Header with gradient
-        header = tk.Frame(self.dialog, bg=self.colors['primary'], height=80)
+        # Modern header with clean design
+        header = tk.Frame(self.dialog, bg=self.colors['primary'], height=90)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
+
+        # Subtle bottom border for header
+        border_frame = tk.Frame(self.dialog, bg='#e0e0e0', height=1)
+        border_frame.pack(fill=tk.X)
 
         # Title and stats
         title_frame = tk.Frame(header, bg=self.colors['primary'])
@@ -512,20 +518,29 @@ class HotkeyOverlayWidget:
         """Render a modern result card"""
         is_selected = (index == self.selected_index)
 
-        # Card frame with modern styling
-        card = tk.Frame(
+        # Modern Material Design card with elevation
+        card_container = tk.Frame(
             self.results_content,
-            bg=self.colors['primary'] + '20' if is_selected else self.colors['card_bg'],
+            bg='#f0f0f0' if is_selected else '#fafafa',
+            relief=tk.FLAT,
+            bd=0
+        )
+        card_container.pack(fill=tk.X, pady=8, padx=2)
+
+        # Card with shadow effect (layered frames)
+        card = tk.Frame(
+            card_container,
+            bg='#f8f9ff' if is_selected else self.colors['card_bg'],
             relief=tk.FLAT,
             bd=0,
-            highlightthickness=2,
-            highlightbackground=self.colors['primary'] if is_selected else self.colors['border']
+            highlightthickness=1,
+            highlightbackground=self.colors['primary'] if is_selected else '#e0e0e0'
         )
-        card.pack(fill=tk.X, pady=6)
+        card.pack(fill=tk.X, padx=2, pady=2)
 
-        # Card content
+        # Card content with modern spacing
         card_inner = tk.Frame(card, bg=card['bg'])
-        card_inner.pack(fill=tk.X, padx=15, pady=12)
+        card_inner.pack(fill=tk.X, padx=20, pady=16)
 
         # Type and title
         match_type = result['type']
@@ -549,25 +564,26 @@ class HotkeyOverlayWidget:
             fg=type_color
         ).pack(side=tk.LEFT, padx=(0, 10))
 
-        # Title
+        # Title with modern font
         tk.Label(
             header_frame,
             text=title,
-            font=tkfont.Font(family="Helvetica", size=12, weight="bold"),
+            font=self.card_title_font,
             bg=card['bg'],
             fg=self.colors['text_primary'],
             anchor=tk.W
         ).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        # Type badge
+        # Modern type badge with rounded effect
         badge = tk.Label(
             header_frame,
             text=match_type.upper(),
-            font=tkfont.Font(family="Helvetica", size=8, weight="bold"),
+            font=tkfont.Font(family="Segoe UI", size=8, weight="bold"),
             bg=type_color,
             fg='white',
-            padx=8,
-            pady=3
+            padx=12,
+            pady=5,
+            relief=tk.FLAT
         )
         badge.pack(side=tk.RIGHT)
 

@@ -44,14 +44,14 @@ class ContextBarWidget:
         }
         self.bg_color = self.colors['bg']
         self.primary_color = self.colors['primary']
-        self.bar_width = 350
-        self.bar_height = 45
+        self.bar_width = 420
+        self.bar_height = 54
         self.auto_hide_duration = 8000  # 8 seconds
         self.hide_timer = None
 
-        # Fonts
-        self.normal_font = tkfont.Font(family="Helvetica", size=10)
-        self.small_font = tkfont.Font(family="Helvetica", size=9)
+        # Modern fonts - Segoe UI for cross-platform modern look
+        self.normal_font = tkfont.Font(family="Segoe UI", size=11)
+        self.small_font = tkfont.Font(family="Segoe UI", size=10)
 
         # Build bar
         self.build_bar()
@@ -63,43 +63,48 @@ class ContextBarWidget:
         self.bind_keys()
 
     def build_bar(self):
-        """Build compact context bar"""
-        self.bar_frame = tk.Frame(
+        """Build compact context bar - Modern Material Design style"""
+        # Outer shadow frame
+        shadow_frame = tk.Frame(
             self.bar_window,
-            bg=self.bg_color,
-            relief=tk.RAISED,
-            bd=1,
-            highlightbackground='#e0e0e0',
-            highlightthickness=1
+            bg='#d0d0d0'
         )
-        self.bar_frame.pack(fill=tk.BOTH, expand=True)
+        shadow_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Content frame
+        # Main bar frame with modern flat design
+        self.bar_frame = tk.Frame(
+            shadow_frame,
+            bg=self.bg_color,
+            relief=tk.FLAT
+        )
+        self.bar_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+
+        # Content frame with better spacing
         content = tk.Frame(self.bar_frame, bg=self.bg_color)
-        content.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
+        content.pack(fill=tk.BOTH, expand=True, padx=14, pady=10)
 
-        # Match label
+        # Match label - Modern typography
         self.match_label = tk.Label(
             content,
             text="",
             font=self.normal_font,
             bg=self.bg_color,
-            fg='#333',
+            fg='#2d3436',
             anchor=tk.W
         )
         self.match_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        # Navigation indicator
+        # Navigation indicator - Modern subtle styling
         self.nav_label = tk.Label(
             content,
             text="",
             font=self.small_font,
             bg=self.bg_color,
-            fg='#999'
+            fg='#636e72'
         )
-        self.nav_label.pack(side=tk.RIGHT, padx=(5, 0))
+        self.nav_label.pack(side=tk.RIGHT, padx=(8, 0))
 
-        # Expand button
+        # Expand button - Modern button styling
         self.expand_btn = tk.Button(
             content,
             text="▼",
@@ -108,11 +113,13 @@ class ContextBarWidget:
             fg=self.primary_color,
             relief=tk.FLAT,
             cursor='hand2',
-            command=self.toggle_expand
+            command=self.toggle_expand,
+            padx=6,
+            pady=2
         )
-        self.expand_btn.pack(side=tk.RIGHT)
+        self.expand_btn.pack(side=tk.RIGHT, padx=2)
 
-        # Info button
+        # Info button - Modern button styling
         info_btn = tk.Button(
             content,
             text="ℹ️",
@@ -121,9 +128,11 @@ class ContextBarWidget:
             fg=self.primary_color,
             relief=tk.FLAT,
             cursor='hand2',
-            command=self.show_info
+            command=self.show_info,
+            padx=4,
+            pady=2
         )
-        info_btn.pack(side=tk.RIGHT, padx=5)
+        info_btn.pack(side=tk.RIGHT, padx=4)
 
     def show(self, result: Dict[str, Any], x: int = None, y: int = None):
         """Show context bar with results"""
@@ -245,27 +254,31 @@ class ContextBarWidget:
         bar_x = self.bar_window.winfo_x()
         bar_y = self.bar_window.winfo_y()
 
-        popup_width = 400
-        popup_height = 300
+        popup_width = 450
+        popup_height = 320
 
         self.popup_window.geometry(f'{popup_width}x{popup_height}+{bar_x}+{bar_y + self.bar_height + 5}')
 
-        # Content frame
-        frame = tk.Frame(self.popup_window, bg='white', relief=tk.RAISED, bd=1)
-        frame.pack(fill=tk.BOTH, expand=True)
+        # Shadow frame for modern depth effect
+        shadow_frame = tk.Frame(self.popup_window, bg='#c8c8c8')
+        shadow_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Header
-        header = tk.Frame(frame, bg=self.primary_color, height=50)
+        # Content frame with modern flat design
+        frame = tk.Frame(shadow_frame, bg='white', relief=tk.FLAT)
+        frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+
+        # Header - Modern Material Design style
+        header = tk.Frame(frame, bg=self.primary_color, height=58)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
 
         tk.Label(
             header,
             text=f"{match['icon']} {match['label']}",
-            font=tkfont.Font(family="Helvetica", size=12, weight="bold"),
+            font=tkfont.Font(family="Segoe UI", size=14, weight="bold"),
             bg=self.primary_color,
             fg='white'
-        ).pack(side=tk.LEFT, padx=15, pady=12)
+        ).pack(side=tk.LEFT, padx=18, pady=14)
 
         tk.Button(
             header,
@@ -274,65 +287,65 @@ class ContextBarWidget:
             bg=self.primary_color,
             fg='white',
             relief=tk.FLAT,
-            command=self.collapse
-        ).pack(side=tk.RIGHT, padx=15)
+            command=self.collapse,
+            cursor='hand2',
+            padx=10,
+            pady=4
+        ).pack(side=tk.RIGHT, padx=16)
 
-        # Details
-        details_frame = tk.Frame(frame, bg='white', padx=15, pady=15)
+        # Details - Modern spacing
+        details_frame = tk.Frame(frame, bg='white', padx=18, pady=16)
         details_frame.pack(fill=tk.BOTH, expand=True)
 
         details_text = self.format_details(match['type'], match['data'])
 
+        # Details label - Modern typography
         tk.Label(
             details_frame,
             text=details_text,
             font=self.normal_font,
             bg='white',
-            fg='#333',
+            fg='#2d3436',
             justify=tk.LEFT,
             anchor=tk.NW,
-            wraplength=360
+            wraplength=400
         ).pack(fill=tk.BOTH, expand=True)
 
-        # Actions
-        actions = tk.Frame(frame, bg='#f5f5f5')
-        actions.pack(fill=tk.X, padx=15, pady=10)
+        # Actions - Modern Material Design buttons
+        actions = tk.Frame(frame, bg='#f8f9fa')
+        actions.pack(fill=tk.X, padx=18, pady=12)
+
+        # Modern button styling
+        btn_style = {
+            'font': self.normal_font,
+            'bg': self.primary_color,
+            'fg': 'white',
+            'relief': tk.FLAT,
+            'cursor': 'hand2',
+            'padx': 14,
+            'pady': 7
+        }
 
         tk.Button(
             actions,
             text="💾 Save",
-            font=self.small_font,
-            bg=self.primary_color,
-            fg='white',
-            relief=tk.FLAT,
-            padx=10,
-            pady=5,
-            command=self.save_snippet
-        ).pack(side=tk.LEFT, padx=(0, 5))
+            command=self.save_snippet,
+            **btn_style
+        ).pack(side=tk.LEFT, padx=(0, 6))
 
         tk.Button(
             actions,
             text="🔍 Search",
-            font=self.small_font,
-            bg=self.primary_color,
-            fg='white',
-            relief=tk.FLAT,
-            padx=10,
-            pady=5,
-            command=self.search_web
-        ).pack(side=tk.LEFT, padx=5)
+            command=self.search_web,
+            **btn_style
+        ).pack(side=tk.LEFT, padx=6)
 
         tk.Button(
             actions,
             text="📋 Copy",
-            font=self.small_font,
-            bg=self.primary_color,
-            fg='white',
-            relief=tk.FLAT,
-            padx=10,
-            pady=5,
-            command=self.copy_to_clipboard
-        ).pack(side=tk.LEFT, padx=5)
+            command=self.copy_to_clipboard,
+            **btn_style
+        ).pack(side=tk.LEFT, padx=6)
 
         # Update button
         self.expand_btn.config(text="▲")

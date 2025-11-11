@@ -58,13 +58,13 @@ class ActionWheelWidget:
             'text_secondary': '#636e72'
         }
 
-        self.hub_size = 240
-        self.button_size = 50
+        self.hub_size = 280  # Larger for modern look
+        self.button_size = 60
 
-        # Fonts
-        self.action_font = tkfont.Font(family="Helvetica", size=11, weight="bold")
-        self.item_font = tkfont.Font(family="Helvetica", size=9)
-        self.title_font = tkfont.Font(family="Helvetica", size=10, weight="bold")
+        # Modern fonts
+        self.action_font = tkfont.Font(family="Segoe UI", size=12, weight="bold")
+        self.item_font = tkfont.Font(family="Segoe UI", size=10)
+        self.title_font = tkfont.Font(family="Segoe UI", size=11, weight="bold")
 
         # Build UI
         self.build_wheel()
@@ -74,68 +74,79 @@ class ActionWheelWidget:
 
     def build_wheel(self):
         """Build the enhanced circular action wheel"""
-        # Main container with rounded effect
+        # Main container with modern shadow effect
         self.container = tk.Frame(
             self.root,
             bg=self.color_scheme['bg_light'],
             width=self.hub_size,
             height=self.hub_size,
-            highlightthickness=2,
-            highlightbackground=self.color_scheme['primary']
+            highlightthickness=0
         )
-        self.container.pack()
+        self.container.pack(padx=8, pady=8)
 
-        # Canvas for circular layout
+        # Canvas for circular layout with modern styling
         self.canvas = tk.Canvas(
             self.container,
             width=self.hub_size,
             height=self.hub_size,
             bg=self.color_scheme['bg_light'],
-            highlightthickness=0
+            highlightthickness=3,
+            highlightbackground='#e0e0e0'
         )
         self.canvas.pack()
 
-        # Center hub circle with gradient effect (simulated with multiple circles)
+        # Center hub circle with modern gradient effect
         center = self.hub_size // 2
-        hub_radius = 45
+        hub_radius = 50
 
-        # Outer glow effect
-        for i in range(3):
+        # Shadow circles (layered for depth)
+        for i in range(5, 0, -1):
+            gray_val = 200 + i * 10
             self.canvas.create_oval(
-                center - hub_radius - (3-i)*2,
-                center - hub_radius - (3-i)*2,
-                center + hub_radius + (3-i)*2,
-                center + hub_radius + (3-i)*2,
-                fill=self.color_scheme['primary'],
-                outline='',
-                stipple='gray50'
+                center - hub_radius - i,
+                center - hub_radius - i,
+                center + hub_radius + i,
+                center + hub_radius + i,
+                fill=f'#{gray_val:02x}{gray_val:02x}{gray_val:02x}',
+                outline=''
             )
 
-        # Main hub
+        # Main hub with modern flat design
         self.hub_circle = self.canvas.create_oval(
             center - hub_radius,
             center - hub_radius,
             center + hub_radius,
             center + hub_radius,
             fill=self.color_scheme['primary'],
-            outline=self.color_scheme['accent'],
-            width=2
+            outline='',
+            width=0
         )
 
-        # Hub icon/text
+        # Inner highlight circle for depth
+        self.canvas.create_oval(
+            center - hub_radius + 3,
+            center - hub_radius + 3,
+            center + hub_radius - 3,
+            center + hub_radius - 3,
+            fill='',
+            outline='white',
+            width=1
+        )
+
+        # Hub icon/text with modern styling
         self.hub_text = self.canvas.create_text(
             center,
-            center - 10,
+            center - 12,
             text="🎯",
-            font=tkfont.Font(size=20),
+            font=tkfont.Font(size=24),
             fill='white'
         )
 
         self.hub_label = self.canvas.create_text(
             center,
-            center + 15,
+            center + 18,
             text="Actions",
-            font=self.item_font,
+            font=tkfont.Font(family="Segoe UI", size=10, weight="bold"),
             fill='white'
         )
 
@@ -196,31 +207,36 @@ class ActionWheelWidget:
         x = center + distance * math.sin(rad)
         y = center - distance * math.cos(rad)
 
-        # Create button with modern styling
+        # Create button frame for shadow effect
+        btn_frame = tk.Frame(self.canvas, bg=self.color_scheme['bg_light'])
+
+        # Create button with modern flat design
         btn = tk.Button(
-            self.canvas,
+            btn_frame,
             text=f"{icon}\n{label}",
-            font=self.item_font,
+            font=self.action_font,
             bg=color,
             fg='white',
             activebackground=self.darken_color(color),
             activeforeground='white',
             relief=tk.FLAT,
-            width=6,
+            width=7,
             height=3,
             cursor="hand2",
             command=command,
             bd=0,
-            padx=4,
-            pady=4
+            padx=8,
+            pady=8,
+            highlightthickness=0
         )
+        btn.pack()
 
-        # Add hover effect
-        btn.bind('<Enter>', lambda e: btn.config(bg=self.lighten_color(color)))
-        btn.bind('<Leave>', lambda e: btn.config(bg=color))
+        # Modern hover effect
+        btn.bind('<Enter>', lambda e: btn.config(bg=self.lighten_color(color), font=tkfont.Font(family="Segoe UI", size=13, weight="bold")))
+        btn.bind('<Leave>', lambda e: btn.config(bg=color, font=self.action_font))
 
         # Place on canvas
-        self.canvas.create_window(x, y, window=btn)
+        self.canvas.create_window(x, y, window=btn_frame)
         self.action_buttons.append(btn)
 
     def darken_color(self, hex_color, factor=0.8):

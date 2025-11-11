@@ -158,7 +158,15 @@ class WidgetMode:
                 result = self.analyzer.analyze(current_clipboard.strip())
 
                 # Show in widget (must be done in main thread)
-                self.widget.root.after(0, lambda: self.widget.show(result))
+                # Safely handle case where main loop isn't running yet
+                try:
+                    self.widget.root.after(0, lambda: self.widget.show(result))
+                except RuntimeError as e:
+                    if "main thread is not in main loop" in str(e):
+                        # Main loop not running yet, skip this update
+                        pass
+                    else:
+                        raise
 
         except ImportError:
             print("Error: pyperclip not installed. Install with: pip install pyperclip")

@@ -20,9 +20,9 @@ class SidebarWidget:
         self.favorites = []  # Starred items
         self.current_tab = "recent"  # recent, favorites, stats
 
-        # Dimensions
-        self.width_collapsed = 45
-        self.width_expanded = 350
+        # Dimensions - modernized for better visibility
+        self.width_collapsed = 50
+        self.width_expanded = 420
         self.docked_side = 'right'  # or 'left'
 
         # Create window
@@ -51,10 +51,10 @@ class SidebarWidget:
         self.bg_color = self.colors['bg']
         self.primary_color = self.colors['primary']
 
-        # Fonts
-        self.title_font = tkfont.Font(family="Helvetica", size=13, weight="bold")
-        self.normal_font = tkfont.Font(family="Helvetica", size=10)
-        self.small_font = tkfont.Font(family="Helvetica", size=9)
+        # Modern fonts - Segoe UI for cross-platform modern look
+        self.title_font = tkfont.Font(family="Segoe UI", size=16, weight="bold")
+        self.normal_font = tkfont.Font(family="Segoe UI", size=11)
+        self.small_font = tkfont.Font(family="Segoe UI", size=10)
 
         # Build UI
         self.build_sidebar()
@@ -71,30 +71,34 @@ class SidebarWidget:
         self.container = tk.Frame(self.root, bg=self.bg_color)
         self.container.pack(fill=tk.BOTH, expand=True)
 
-        # Collapsed view
+        # Collapsed view - Modern minimal design
         self.collapsed_frame = tk.Frame(self.container, bg=self.primary_color, width=self.width_collapsed)
 
-        # Vertical text
+        # Vertical text - Modern font
         canvas = tk.Canvas(self.collapsed_frame, bg=self.primary_color, width=self.width_collapsed, height=200, highlightthickness=0)
-        canvas.pack()
-        canvas.create_text(20, 100, text="CONTEXT", fill='white', font=self.small_font, angle=90)
+        canvas.pack(pady=20)
+        canvas.create_text(25, 100, text="CONTEXT", fill='white', font=self.small_font, angle=90)
 
-        # Expand button
+        # Expand button - Modern styling
         expand_btn = tk.Button(
             self.collapsed_frame,
             text="►",
             bg=self.primary_color,
             fg='white',
             relief=tk.FLAT,
-            command=self.toggle_expand
+            command=self.toggle_expand,
+            cursor='hand2',
+            font=self.normal_font,
+            padx=8,
+            pady=6
         )
         expand_btn.pack(pady=10)
 
         # Expanded view
         self.expanded_frame = tk.Frame(self.container, bg='white')
 
-        # Header
-        header = tk.Frame(self.expanded_frame, bg=self.primary_color, height=50)
+        # Header - Modern Material Design style
+        header = tk.Frame(self.expanded_frame, bg=self.primary_color, height=64)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
 
@@ -104,10 +108,10 @@ class SidebarWidget:
             font=self.title_font,
             bg=self.primary_color,
             fg='white'
-        ).pack(side=tk.LEFT, padx=10, pady=10)
+        ).pack(side=tk.LEFT, padx=18, pady=16)
 
-        # Info button
-        tk.Button(
+        # Info button - Modern styling
+        info_btn = tk.Button(
             header,
             text="ℹ️",
             bg=self.primary_color,
@@ -115,44 +119,57 @@ class SidebarWidget:
             relief=tk.FLAT,
             command=self.show_info,
             cursor='hand2',
-            padx=5
-        ).pack(side=tk.LEFT)
+            font=self.normal_font,
+            padx=8,
+            pady=4
+        )
+        info_btn.pack(side=tk.LEFT, padx=4)
 
-        tk.Button(
+        # Collapse button - Modern styling
+        collapse_btn = tk.Button(
             header,
             text="◄",
             bg=self.primary_color,
             fg='white',
             relief=tk.FLAT,
-            command=self.toggle_expand
-        ).pack(side=tk.RIGHT, padx=10)
+            command=self.toggle_expand,
+            cursor='hand2',
+            font=self.normal_font,
+            padx=12,
+            pady=4
+        )
+        collapse_btn.pack(side=tk.RIGHT, padx=12)
 
-        # Content area
+        # Content area - Modern spacing
         content_frame = tk.Frame(self.expanded_frame, bg='white')
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
 
-        # Selected text label
+        # Selected text label - Modern Material Design card
         tk.Label(
             content_frame,
             text="Latest Analysis:",
             font=self.small_font,
             bg='white',
             fg='#666'
-        ).pack(anchor=tk.W)
+        ).pack(anchor=tk.W, pady=(0, 6))
+
+        # Card container with shadow simulation
+        selected_card_outer = tk.Frame(content_frame, bg='#e8e8e8')
+        selected_card_outer.pack(fill=tk.X, pady=(0, 14))
 
         self.selected_text_label = tk.Label(
-            content_frame,
+            selected_card_outer,
             text="",
             font=self.normal_font,
             bg='#f8f9fa',
             fg='#333',
-            wraplength=280,
+            wraplength=360,
             justify=tk.LEFT,
             relief=tk.FLAT,
-            padx=10,
-            pady=10
+            padx=14,
+            pady=12
         )
-        self.selected_text_label.pack(fill=tk.X, pady=(5, 10))
+        self.selected_text_label.pack(fill=tk.X, padx=1, pady=1)
 
         # Results area (scrollable)
         results_canvas = tk.Canvas(content_frame, bg='white', highlightthickness=0)
@@ -249,28 +266,33 @@ class SidebarWidget:
         self.root.deiconify()
 
     def render_result_card(self, result: Dict):
-        """Render a result card"""
+        """Render a result card - Modern Material Design style"""
         match_type = result['type']
         data = result['data']
 
-        # Card frame
-        card = tk.Frame(self.results_frame, bg='white', relief=tk.RAISED, bd=1)
-        card.pack(fill=tk.X, pady=5)
+        # Outer container for shadow simulation
+        card_outer = tk.Frame(self.results_frame, bg='#e8e8e8')
+        card_outer.pack(fill=tk.X, pady=8)
 
-        # Type badge
+        # Inner card with modern styling
+        card = tk.Frame(card_outer, bg='white', relief=tk.FLAT)
+        card.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+
+        # Type badge and title
         icon = {'contact': '👤', 'abbreviation': '🟣', 'project': '📁', 'snippet': '📝'}.get(match_type, '📄')
 
         header = tk.Frame(card, bg='white')
-        header.pack(fill=tk.X, padx=10, pady=8)
+        header.pack(fill=tk.X, padx=14, pady=12)
 
+        # Icon with larger size
         tk.Label(
             header,
             text=icon,
-            font=self.title_font,
+            font=tkfont.Font(family="Segoe UI", size=14),
             bg='white'
         ).pack(side=tk.LEFT)
 
-        # Title
+        # Title - determine text
         if match_type == 'contact':
             title = data.get('name', 'Unknown')
         elif match_type == 'abbreviation':
@@ -280,15 +302,16 @@ class SidebarWidget:
         else:
             title = match_type
 
+        # Title label with bold font
         tk.Label(
             header,
             text=title,
-            font=self.normal_font,
+            font=tkfont.Font(family="Segoe UI", size=12, weight="bold"),
             bg='white',
-            fg='#333'
-        ).pack(side=tk.LEFT, padx=(5, 0))
+            fg='#2d3436'
+        ).pack(side=tk.LEFT, padx=(8, 0))
 
-        # Preview
+        # Preview text
         preview_text = ""
         if match_type == 'contact':
             preview_text = data.get('email', data.get('role', ''))
@@ -301,10 +324,10 @@ class SidebarWidget:
                 text=preview_text,
                 font=self.small_font,
                 bg='white',
-                fg='#666',
-                wraplength=260,
+                fg='#636e72',
+                wraplength=360,
                 justify=tk.LEFT
-            ).pack(anchor=tk.W, padx=10, pady=(0, 8))
+            ).pack(anchor=tk.W, padx=14, pady=(0, 12))
 
     def show_settings(self):
         """Show settings dialog"""
