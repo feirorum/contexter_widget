@@ -25,6 +25,9 @@ class ContextBarWidget:
         self.bar_window.overrideredirect(True)
         self.bar_window.attributes('-topmost', True)
 
+        # Compatibility: alias for widget_mode.py
+        self.root = self.bar_window
+
         # Modern styling
         self.colors = {
             'bg': '#ffffff',

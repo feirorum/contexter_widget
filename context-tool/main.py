@@ -265,16 +265,71 @@ def main():
                 use_markdown=use_markdown
             )
 
-            # Initialize components (loads data, sets up saver/analyzer)
-            mode_instance.initialize()
+            # Initialize components WITHOUT creating the default widget
+            # (We'll create the prototype widget instead)
+            from src.database import get_database
+            from src.data_loaders import load_data
+            from src.pattern_matcher import PatternMatcher
+            from src.action_suggester import ActionSuggester
+            from src.context_analyzer import ContextAnalyzer
+            from src.saver import SmartSaver
 
-            # Replace widget with prototype implementation
+            try:
+                from src.semantic_searcher import SemanticSearcher
+                SEMANTIC_AVAILABLE = True
+            except ImportError:
+                SEMANTIC_AVAILABLE = False
+                SemanticSearcher = None
+
+            print("Initializing prototype widget mode...")
+
+            # Setup database
+            db_instance = get_database(db_path)
+            mode_instance.db = db_instance.connection
+
+            # Load data
+            print(f"📁 Data format: {'Markdown' if use_markdown else 'YAML'}")
+            print(f"📁 Data directory: {data_dir.absolute()}")
+
+            if use_markdown:
+                load_data(mode_instance.db, data_dir, format='markdown')
+            else:
+                load_data(mode_instance.db, data_dir, format='yaml')
+
+            # Initialize components
+            pattern_matcher = PatternMatcher()
+            action_suggester = ActionSuggester()
+
+            # Semantic searcher (optional)
+            semantic_searcher = None
+            if enable_semantic and SEMANTIC_AVAILABLE:
+                print("Initializing semantic search...")
+                semantic_searcher = SemanticSearcher(mode_instance.db)
+                semantic_searcher.build_index()
+
+            # Create analyzer
+            mode_instance.analyzer = ContextAnalyzer(
+                db=mode_instance.db,
+                pattern_matcher=pattern_matcher,
+                action_suggester=action_suggester,
+                semantic_searcher=semantic_searcher
+            )
+
+            # Create smart saver
+            mode_instance.saver = SmartSaver(
+                data_dir=data_dir,
+                on_save_callback=lambda save_type: load_data(
+                    mode_instance.db, data_dir,
+                    format='markdown' if use_markdown else 'yaml'
+                )
+            )
+
+            # Create prototype widget (instead of default ContextWidget)
             mode_instance.widget = WidgetClass(on_save_snippet=mode_instance.saver)
 
-            # Do NOT call mode_instance.run() here because run() calls initialize()
-            # which would recreate the default `ContextWidget` and overwrite
-            # our prototype replacement. Instead, start monitoring and run the
-            # prototype widget's mainloop directly.
+            print("Initialization complete!")
+
+            # Start monitoring and run prototype widget
             try:
                 mode_instance.start_clipboard_monitoring()
                 mode_instance.widget.run()
