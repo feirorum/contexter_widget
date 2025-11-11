@@ -26,13 +26,12 @@ class HotkeyOverlayWidget:
         self.sort_mode = "relevance"  # relevance, name, date
         self.dark_mode = False
 
-        # Create fullscreen window
+        # Create main window (NOT fullscreen - that's too intrusive)
         self.root = tk.Tk()
         self.root.withdraw()
-        self.root.title("Context Tool")
+        self.root.title("Context Tool - Quick View")
 
-        # Fullscreen overlay
-        self.root.attributes('-fullscreen', True)
+        # Configure as a centered dialog, not fullscreen
         self.root.attributes('-topmost', True)
         self.root.configure(bg='#000000')
 
@@ -85,17 +84,9 @@ class HotkeyOverlayWidget:
 
     def build_overlay(self):
         """Build the enhanced overlay UI"""
-        # Backdrop (click to close)
-        self.backdrop = tk.Frame(self.root, bg='#000000', cursor='arrow')
-        self.backdrop.place(relx=0, rely=0, relwidth=1, relheight=1)
-        self.backdrop.bind('<Button-1>', lambda e: self.hide())
-
-        # Set backdrop opacity
-        self.root.wm_attributes('-alpha', 0.7)
-
-        # Dialog container (centered)
-        self.dialog_width = 900
-        self.dialog_height = 700
+        # Main dialog (no backdrop - simpler design)
+        self.dialog_width = 850
+        self.dialog_height = 650
 
         self.dialog = tk.Frame(
             self.root,
@@ -105,13 +96,7 @@ class HotkeyOverlayWidget:
             highlightthickness=2,
             highlightbackground=self.colors['primary']
         )
-        self.dialog.place(
-            relx=0.5,
-            rely=0.5,
-            anchor=tk.CENTER,
-            width=self.dialog_width,
-            height=self.dialog_height
-        )
+        self.dialog.pack(fill=tk.BOTH, expand=True)
 
         # Header with gradient
         header = tk.Frame(self.dialog, bg=self.colors['primary'], height=80)
@@ -124,11 +109,26 @@ class HotkeyOverlayWidget:
 
         tk.Label(
             title_frame,
-            text="🔍 Context Search",
+            text="🔍 Context Results",
             font=self.title_font,
             bg=self.colors['primary'],
             fg='white'
         ).pack(side=tk.LEFT)
+
+        # Info button
+        info_btn = tk.Button(
+            title_frame,
+            text="ℹ️",
+            font=self.normal_font,
+            bg=self.colors['secondary'],
+            fg='white',
+            relief=tk.FLAT,
+            cursor='hand2',
+            command=self.show_info,
+            padx=8,
+            pady=4
+        )
+        info_btn.pack(side=tk.LEFT, padx=10)
 
         # Stats and dark mode toggle
         controls_frame = tk.Frame(title_frame, bg=self.colors['primary'])
@@ -170,13 +170,21 @@ class HotkeyOverlayWidget:
             padx=10
         ).pack(side=tk.LEFT, padx=5)
 
-        # Search box with modern styling
-        search_frame = tk.Frame(self.dialog, bg=self.colors['card_bg'], height=70)
+        # Quick filter box (simpler than full search)
+        search_frame = tk.Frame(self.dialog, bg=self.colors['card_bg'], height=60)
         search_frame.pack(fill=tk.X, padx=25, pady=(15, 0))
         search_frame.pack_propagate(False)
 
+        tk.Label(
+            search_frame,
+            text="Quick Filter:",
+            font=self.normal_font,
+            bg=self.colors['card_bg'],
+            fg=self.colors['text_secondary']
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
         search_container = tk.Frame(search_frame, bg=self.colors['border'], bd=1, relief=tk.SOLID)
-        search_container.pack(fill=tk.BOTH, expand=True)
+        search_container.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
 
         search_inner = tk.Frame(search_container, bg=self.colors['card_bg'])
         search_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
@@ -195,24 +203,13 @@ class HotkeyOverlayWidget:
         self.search_entry = tk.Entry(
             search_inner,
             textvariable=self.search_var,
-            font=self.search_font,
+            font=self.normal_font,
             relief=tk.FLAT,
             bg=self.colors['card_bg'],
             fg=self.colors['text_primary'],
             bd=0
         )
-        self.search_entry.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, ipady=8)
-
-        # Search hint
-        tk.Label(
-            search_inner,
-            text="Ctrl+K",
-            font=self.small_font,
-            bg=self.colors['bg'],
-            fg=self.colors['text_secondary'],
-            padx=8,
-            pady=4
-        ).pack(side=tk.RIGHT, padx=5)
+        self.search_entry.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, ipady=6)
 
         # Filter chips
         filter_frame = tk.Frame(self.dialog, bg=self.colors['card_bg'], height=50)
@@ -369,10 +366,17 @@ class HotkeyOverlayWidget:
         # Render results
         self.render_results()
 
+        # Position window centered on screen
+        self.root.update_idletasks()
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x = (screen_width - self.dialog_width) // 2
+        y = (screen_height - self.dialog_height) // 2
+        self.root.geometry(f'{self.dialog_width}x{self.dialog_height}+{x}+{y}')
+
         # Show window
         self.root.deiconify()
         self.root.focus_force()
-        self.search_entry.focus_set()
 
     def on_search_change(self):
         """Handle search input changes (fuzzy search)"""
@@ -916,6 +920,79 @@ class HotkeyOverlayWidget:
         # Auto-close
         toast.after(2000, toast.destroy)
 
+    def show_info(self):
+        """Show information about this prototype"""
+        info_text = """
+📊 Quick Results View - Prototype 2
+
+CONCEPT:
+A centered dialog showing all context matches with advanced
+filtering and sorting capabilities.
+
+HOW TO USE:
+• Results appear automatically when you copy text
+• Use Quick Filter to search within current results
+• Click filter chips to show only specific types
+• Sort by relevance, name, or date
+
+KEYBOARD SHORTCUTS:
+• ↑↓ - Navigate through results
+• Enter - Show full details
+• Ctrl+S - Save current text as snippet
+• Ctrl+E - Export all results to clipboard (JSON)
+• Ctrl+D - Toggle dark mode
+• ESC - Close window
+
+SPECIAL FEATURES:
+• Dark mode support
+• Fuzzy search filtering
+• Type-specific badges and colors
+• Quick copy buttons on each card
+• Tabbed detail view (Details/JSON)
+        """
+
+        info_window = tk.Toplevel(self.root)
+        info_window.title("About This Prototype")
+        info_window.geometry("500x550")
+        info_window.transient(self.root)
+        info_window.attributes('-topmost', True)
+
+        # Center on screen
+        info_window.update_idletasks()
+        x = (info_window.winfo_screenwidth() - 500) // 2
+        y = (info_window.winfo_screenheight() - 550) // 2
+        info_window.geometry(f"+{x}+{y}")
+
+        # Content
+        text_widget = tk.Text(
+            info_window,
+            wrap=tk.WORD,
+            font=self.normal_font,
+            padx=20,
+            pady=20,
+            bg='#f8f9fa',
+            relief=tk.FLAT
+        )
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_widget.insert('1.0', info_text)
+        text_widget.config(state=tk.DISABLED)
+
+        # Close button
+        tk.Button(
+            info_window,
+            text="Got it!",
+            command=info_window.destroy,
+            bg=self.colors['primary'],
+            fg='white',
+            relief=tk.FLAT,
+            padx=20,
+            pady=10,
+            font=self.normal_font,
+            cursor='hand2'
+        ).pack(pady=15)
+
+        info_window.bind('<Escape>', lambda e: info_window.destroy())
+
     def bind_keys(self):
         """Bind keyboard shortcuts"""
         self.root.bind('<Escape>', lambda e: self.hide())
@@ -926,6 +1003,7 @@ class HotkeyOverlayWidget:
         self.root.bind('<Control-k>', lambda e: self.search_entry.focus_set())
         self.root.bind('<Control-e>', lambda e: self.export_results())
         self.root.bind('<Control-d>', lambda e: self.toggle_dark_mode())
+        self.root.bind('<F1>', lambda e: self.show_info())
 
     def hide(self):
         """Hide the overlay"""

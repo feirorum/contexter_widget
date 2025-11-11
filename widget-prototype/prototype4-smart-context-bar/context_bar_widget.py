@@ -112,6 +112,19 @@ class ContextBarWidget:
         )
         self.expand_btn.pack(side=tk.RIGHT)
 
+        # Info button
+        info_btn = tk.Button(
+            content,
+            text="ℹ️",
+            font=self.small_font,
+            bg=self.bg_color,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            cursor='hand2',
+            command=self.show_info
+        )
+        info_btn.pack(side=tk.RIGHT, padx=5)
+
     def show(self, result: Dict[str, Any], x: int = None, y: int = None):
         """Show context bar with results"""
         self.current_data = result
@@ -379,6 +392,90 @@ class ContextBarWidget:
                 self.bar_window.clipboard_clear()
                 self.bar_window.clipboard_append(text)
 
+    def show_info(self):
+        """Show information about this prototype"""
+        info_text = """
+💡 Smart Context Bar - Prototype 4
+
+CONCEPT:
+A compact bar appearing near selected text (like IDE hints),
+showing context matches with minimal screen real estate.
+
+HOW TO USE:
+• Bar appears automatically near cursor when you copy text
+• Click ▼ to expand and show full details
+• Use arrows to cycle through multiple matches
+• Auto-hides after 8 seconds (configurable)
+• Click info icon for this help
+
+KEYBOARD SHORTCUTS:
+• Tab/↓ - Next match
+• ↑ - Previous match
+• →/Enter - Expand details
+• ← - Collapse details
+• Ctrl+S - Save snippet
+• ESC - Hide bar
+• F1 - Show this help
+
+SPECIAL FEATURES:
+• Auto-positioning (avoids screen edges)
+• Countdown indicator for auto-hide
+• Inline expansion (no popup windows)
+• Minimal, unobtrusive design
+• Quick action buttons in expanded view
+
+BEST FOR:
+• Users who prefer subtle, non-intrusive UIs
+• Workflow integration without interruption
+• Quick glances at context without focus stealing
+        """
+
+        info_window = tk.Toplevel(self.bar_window)
+        info_window.title("About This Prototype")
+        info_window.geometry("500x550")
+        info_window.transient(self.bar_window)
+        info_window.attributes('-topmost', True)
+
+        # Position below or above bar
+        bar_x = self.bar_window.winfo_x()
+        bar_y = self.bar_window.winfo_y()
+        x = bar_x
+        y = bar_y + self.bar_height + 10
+        # If would go off screen, position above
+        if y + 550 > self.bar_window.winfo_screenheight():
+            y = bar_y - 560
+        info_window.geometry(f"+{x}+{y}")
+
+        # Content
+        text_widget = tk.Text(
+            info_window,
+            wrap=tk.WORD,
+            font=self.normal_font,
+            padx=20,
+            pady=20,
+            bg='#f8f9fa',
+            relief=tk.FLAT
+        )
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_widget.insert('1.0', info_text)
+        text_widget.config(state=tk.DISABLED)
+
+        # Close button
+        tk.Button(
+            info_window,
+            text="Got it!",
+            command=info_window.destroy,
+            bg=self.colors['primary'],
+            fg='white',
+            relief=tk.FLAT,
+            padx=20,
+            pady=10,
+            font=self.normal_font,
+            cursor='hand2'
+        ).pack(pady=15)
+
+        info_window.bind('<Escape>', lambda e: info_window.destroy())
+
     def bind_keys(self):
         """Bind keyboard shortcuts"""
         self.bar_window.bind('<Tab>', lambda e: self.cycle_match(1))
@@ -389,6 +486,7 @@ class ContextBarWidget:
         self.bar_window.bind('<Left>', lambda e: self.collapse())
         self.bar_window.bind('<Escape>', lambda e: self.hide())
         self.bar_window.bind('<Control-s>', lambda e: self.save_snippet())
+        self.bar_window.bind('<F1>', lambda e: self.show_info())
 
     def hide(self):
         """Hide the bar"""

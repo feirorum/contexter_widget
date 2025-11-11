@@ -160,6 +160,20 @@ class ActionWheelWidget:
         self.item_widgets = []
         self.item_ring_radius = 100
 
+        # Info button (top-left corner)
+        info_btn = tk.Button(
+            self.canvas,
+            text="ℹ️",
+            font=self.action_font,
+            bg=self.color_scheme['bg_light'],
+            fg=self.color_scheme['primary'],
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=self.show_info,
+            bd=0
+        )
+        self.canvas.create_window(20, 20, window=info_btn)
+
         # Close button (top-right corner)
         close_btn = tk.Button(
             self.canvas,
@@ -672,6 +686,81 @@ class ActionWheelWidget:
             self.item_widgets.append(label)
             y_pos += 20
 
+    def show_info(self):
+        """Show information about this prototype"""
+        info_text = """
+🎯 Action Wheel - Prototype 1
+
+CONCEPT:
+A radial menu that appears near your cursor, showing matches
+in a circular layout with quick actions at cardinal points.
+
+HOW TO USE:
+• Wheel appears automatically when you copy text
+• Click center hub to toggle history view
+• Click items in the outer ring to select them
+• Right-click items for context menu
+• Use action buttons (Save, Search, Copy, Pin)
+
+KEYBOARD SHORTCUTS:
+• ↑↓←→ - Navigate through matches
+• Enter/Space - Show full details
+• S - Save snippet
+• W - Web search
+• C - Copy to clipboard
+• P - Pin/unpin current item
+• H - Toggle history view
+• ESC - Close wheel
+
+SPECIAL FEATURES:
+• Favorites/pinning system with star indicators
+• History tracking (last 10 analyses)
+• Smooth fade animations
+• Type-specific color coding
+• Confidence scores on details
+• Copy as JSON option
+        """
+
+        info_window = tk.Toplevel(self.root)
+        info_window.title("About This Prototype")
+        info_window.geometry("500x550")
+        info_window.transient(self.root)
+        info_window.attributes('-topmost', True)
+
+        # Position near wheel
+        wheel_x = self.root.winfo_x()
+        wheel_y = self.root.winfo_y()
+        info_window.geometry(f"+{wheel_x + self.hub_size + 10}+{wheel_y}")
+
+        # Content
+        text_widget = tk.Text(
+            info_window,
+            wrap=tk.WORD,
+            font=self.item_font,
+            padx=20,
+            pady=20,
+            bg='#f8f9fa',
+            relief=tk.FLAT
+        )
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_widget.insert('1.0', info_text)
+        text_widget.config(state=tk.DISABLED)
+
+        # Close button
+        tk.Button(
+            info_window,
+            text="Got it!",
+            command=info_window.destroy,
+            bg=self.color_scheme['primary'],
+            fg='white',
+            relief=tk.FLAT,
+            padx=20,
+            pady=10,
+            cursor='hand2'
+        ).pack(pady=15)
+
+        info_window.bind('<Escape>', lambda e: info_window.destroy())
+
     def bind_keys(self):
         """Bind keyboard shortcuts"""
         self.root.bind('<Up>', lambda e: self.navigate(-1))
@@ -686,6 +775,7 @@ class ActionWheelWidget:
         self.root.bind('c', lambda e: self.copy_to_clipboard())
         self.root.bind('p', lambda e: self.pin_item())
         self.root.bind('h', lambda e: self.toggle_history())
+        self.root.bind('<F1>', lambda e: self.show_info())
 
     def save_snippet(self):
         """Save current text as snippet"""

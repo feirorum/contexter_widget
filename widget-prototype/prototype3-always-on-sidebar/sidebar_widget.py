@@ -106,6 +106,18 @@ class SidebarWidget:
             fg='white'
         ).pack(side=tk.LEFT, padx=10, pady=10)
 
+        # Info button
+        tk.Button(
+            header,
+            text="ℹ️",
+            bg=self.primary_color,
+            fg='white',
+            relief=tk.FLAT,
+            command=self.show_info,
+            cursor='hand2',
+            padx=5
+        ).pack(side=tk.LEFT)
+
         tk.Button(
             header,
             text="◄",
@@ -321,11 +333,90 @@ class SidebarWidget:
 
         tk.Button(settings, text="Apply", command=apply).pack(pady=20)
 
+    def show_info(self):
+        """Show information about this prototype"""
+        info_text = """
+📌 Always-On Sidebar - Prototype 3
+
+CONCEPT:
+A persistent sidebar docked to the screen edge, always available
+for quick reference to your context matches.
+
+HOW TO USE:
+• Sidebar stays open and docked to right (or left) edge
+• Click ► button when collapsed to expand
+• Click ◄ button to collapse back to minimal view
+• Results appear automatically when you copy text
+• Drag to resize (future enhancement)
+
+KEYBOARD SHORTCUTS:
+• Ctrl+[ - Collapse sidebar
+• Ctrl+] - Expand sidebar
+• Ctrl+Alt+S - Toggle expand/collapse
+• F1 - Show this help
+
+SPECIAL FEATURES:
+• Persistent, always-visible design
+• Switchable dock side (left/right)
+• Minimal resource footprint when collapsed
+• Type-specific color coding
+• Settings panel for customization
+
+BEST FOR:
+• Users who want context always visible
+• Multi-monitor setups
+• Long work sessions with frequent lookups
+        """
+
+        info_window = tk.Toplevel(self.root)
+        info_window.title("About This Prototype")
+        info_window.geometry("500x550")
+        info_window.transient(self.root)
+        info_window.attributes('-topmost', True)
+
+        # Position to the left of sidebar
+        sidebar_x = self.root.winfo_x()
+        sidebar_y = self.root.winfo_y()
+        x = max(sidebar_x - 510, 20)  # 500 width + 10 padding
+        y = sidebar_y + 50
+        info_window.geometry(f"+{x}+{y}")
+
+        # Content
+        text_widget = tk.Text(
+            info_window,
+            wrap=tk.WORD,
+            font=self.normal_font,
+            padx=20,
+            pady=20,
+            bg='#f8f9fa',
+            relief=tk.FLAT
+        )
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_widget.insert('1.0', info_text)
+        text_widget.config(state=tk.DISABLED)
+
+        # Close button
+        tk.Button(
+            info_window,
+            text="Got it!",
+            command=info_window.destroy,
+            bg=self.colors['primary'],
+            fg='white',
+            relief=tk.FLAT,
+            padx=20,
+            pady=10,
+            font=self.normal_font,
+            cursor='hand2'
+        ).pack(pady=15)
+
+        info_window.bind('<Escape>', lambda e: info_window.destroy())
+
     def bind_keys(self):
         """Bind keyboard shortcuts"""
         self.root.bind('<Control-bracketleft>', lambda e: self.set_collapsed())
         self.root.bind('<Control-bracketright>', lambda e: self.set_expanded())
         self.root.bind('<Control-Alt-s>', lambda e: self.toggle_expand())
+        self.root.bind('<F1>', lambda e: self.show_info())
 
     def run(self):
         """Run main loop"""
