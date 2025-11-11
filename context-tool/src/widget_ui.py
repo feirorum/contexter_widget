@@ -103,13 +103,33 @@ class ContextWidget:
         left_pane.pack(side=tk.LEFT, fill=tk.BOTH, expand=False, padx=(0, 5))
         left_pane.config(width=300)
 
+        # Matches header with info button
+        matches_header = tk.Frame(left_pane, bg="white")
+        matches_header.pack(fill=tk.X, padx=10, pady=10)
+
         tk.Label(
-            left_pane,
+            matches_header,
             text="Matches",
             font=self.title_font,
             bg="white",
             fg=self.fg_color
-        ).pack(anchor=tk.W, padx=10, pady=10)
+        ).pack(side=tk.LEFT)
+
+        # Info button
+        info_btn = tk.Button(
+            matches_header,
+            text="ℹ️",
+            font=self.normal_font,
+            bg="white",
+            fg=self.accent_color,
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=self.show_info,
+            bd=0,
+            padx=4,
+            pady=2
+        )
+        info_btn.pack(side=tk.LEFT, padx=5)
 
         # Scrollable list frame
         list_scroll_frame = tk.Frame(left_pane, bg="white")
@@ -232,7 +252,7 @@ class ContextWidget:
         # Keyboard hint
         hint_label = tk.Label(
             self.footer_frame,
-            text="↑↓ Navigate  •  Enter Select  •  Esc Close",
+            text="↑↓ Navigate  •  Enter Select  •  F1 Help  •  Esc Close",
             font=self.small_font,
             fg="#999",
             bg=self.bg_color
@@ -248,6 +268,7 @@ class ContextWidget:
         self.root.bind('<Control-w>', lambda e: self.search_web())
         self.root.bind('<Control-s>', lambda e: self.save_snippet())
         self.root.bind('<Control-c>', lambda e: self.copy_to_clipboard())
+        self.root.bind('<F1>', lambda e: self.show_info())
 
     def truncate_text(self, text: str, max_length: int = 40) -> str:
         """Truncate text with ellipsis"""
@@ -514,9 +535,91 @@ class ContextWidget:
             self.add_detail_field("Tags", ", ".join(tags))
 
     def render_snippet_details(self, snippet: Dict):
-        """Render snippet details"""
+        """Render snippet details with expand/collapse for long text"""
         if snippet.get('text'):
-            self.add_detail_field("Text", snippet['text'], is_title=True, wraplength=450)
+            text = snippet['text']
+            lines = text.split('\n')
+
+            # Container for snippet text
+            snippet_container = tk.Frame(self.detail_frame, bg="white")
+            snippet_container.pack(fill=tk.X, padx=10, pady=5)
+
+            tk.Label(
+                snippet_container,
+                text="Text:",
+                font=self.normal_font,
+                fg="#666",
+                bg="white"
+            ).pack(anchor=tk.W, padx=5, pady=(5, 2))
+
+            # Text frame with border
+            text_frame = tk.Frame(snippet_container, bg="#f8f9fa", relief=tk.SOLID, bd=1)
+            text_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+
+            # Variable to track expand/collapse state
+            is_expanded = tk.BooleanVar(value=False)
+
+            # Create text label
+            text_label = tk.Label(
+                text_frame,
+                text="",
+                font=self.normal_font,
+                fg=self.fg_color,
+                bg="#f8f9fa",
+                wraplength=440,
+                justify=tk.LEFT,
+                anchor=tk.NW
+            )
+            text_label.pack(fill=tk.X, padx=10, pady=10)
+
+            # Update text based on state
+            def update_text():
+                if is_expanded.get() or len(lines) <= 3:
+                    text_label.config(text=text)
+                    if len(lines) > 3:
+                        expand_btn.config(text="▲ Show Less")
+                else:
+                    preview_lines = lines[:3]
+                    preview_text = '\n'.join(preview_lines)
+                    if len(lines) > 3:
+                        preview_text += f"\n... ({len(lines) - 3} more lines)"
+                    text_label.config(text=preview_text)
+                    expand_btn.config(text="▼ Show More")
+
+            # Expand/collapse button (only if more than 3 lines)
+            if len(lines) > 3:
+                expand_btn = tk.Button(
+                    text_frame,
+                    text="▼ Show More",
+                    font=self.small_font,
+                    bg=self.accent_color,
+                    fg="white",
+                    relief=tk.FLAT,
+                    cursor="hand2",
+                    padx=10,
+                    pady=4,
+                    command=lambda: [is_expanded.set(not is_expanded.get()), update_text()]
+                )
+                expand_btn.pack(padx=10, pady=(0, 10))
+
+            # Initial display
+            update_text()
+
+            # Save button for this snippet
+            save_btn = tk.Button(
+                snippet_container,
+                text="💾 Save This Text",
+                font=self.normal_font,
+                bg=self.accent_color,
+                fg="white",
+                relief=tk.FLAT,
+                cursor="hand2",
+                padx=12,
+                pady=6,
+                command=lambda: self.save_current_snippet(text)
+            )
+            save_btn.pack(anchor=tk.W, padx=5, pady=5)
+
         if snippet.get('saved_date'):
             self.add_detail_field("Saved Date", snippet['saved_date'])
         if snippet.get('source'):
@@ -644,6 +747,19 @@ class ContextWidget:
                     # Simple callback
                     self.on_save_snippet(text)
                     self.show_message("Snippet saved!")
+
+    def save_current_snippet(self, text: str):
+        """Save a specific snippet text"""
+        if self.on_save_snippet:
+            if hasattr(self.on_save_snippet, 'save'):
+                # Smart saver
+                result = self.on_save_snippet.save(text, 'snippet')
+                if result:
+                    self.show_message("✓ Snippet saved!")
+            else:
+                # Simple callback
+                self.on_save_snippet(text)
+                self.show_message("Snippet saved!")
 
     def _show_save_choice_dialog(self, text: str):
         """
@@ -981,6 +1097,89 @@ class ContextWidget:
 
         # Auto-hide after 2 seconds
         self.root.after(2000, msg_label.destroy)
+
+    def show_info(self):
+        """Show information about Context Tool"""
+        info_text = """
+📋 Context Tool - Desktop Widget
+
+CONCEPT:
+A desktop widget that automatically analyzes text you copy,
+showing relevant context from your knowledge base including
+contacts, projects, abbreviations, and saved snippets.
+
+HOW TO USE:
+• Copy any text to your clipboard
+• Widget appears automatically with matches
+• Navigate with ↑↓ arrows through results
+• Press Enter to view full details
+• Use action buttons to save, search, or copy
+
+KEYBOARD SHORTCUTS:
+• ↑↓ - Navigate through matches
+• Enter - View details for selected match
+• Ctrl+W - Search web
+• Ctrl+S - Save as snippet
+• Ctrl+C - Copy to clipboard
+• ESC - Close window
+
+FEATURES:
+• Two-pane layout with list and details
+• Snippet expansion (show first 3 lines, expand for more)
+• Smart save detection (abbreviations, contacts, etc.)
+• Dynamic action buttons based on detected type
+• Persistent clipboard monitoring
+• Individual save buttons for snippets
+
+MATCH TYPES:
+• 👤 Contacts - People in your network
+• 📁 Projects - Your active projects
+• 🟣 Abbreviations - Acronyms and their meanings
+• 📝 Snippets - Saved text fragments
+• 🔗 Related Items - Connected information
+        """
+
+        info_window = tk.Toplevel(self.root)
+        info_window.title("About Context Tool")
+        info_window.geometry("550x650")
+        info_window.transient(self.root)
+        info_window.attributes('-topmost', True)
+
+        # Center on screen
+        info_window.update_idletasks()
+        x = (info_window.winfo_screenwidth() - 550) // 2
+        y = (info_window.winfo_screenheight() - 650) // 2
+        info_window.geometry(f"+{x}+{y}")
+
+        # Content
+        text_widget = tk.Text(
+            info_window,
+            wrap=tk.WORD,
+            font=self.normal_font,
+            padx=20,
+            pady=20,
+            bg='#f8f9fa',
+            relief=tk.FLAT
+        )
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_widget.insert('1.0', info_text)
+        text_widget.config(state=tk.DISABLED)
+
+        # Close button
+        tk.Button(
+            info_window,
+            text="Got it!",
+            command=info_window.destroy,
+            bg=self.accent_color,
+            fg='white',
+            relief=tk.FLAT,
+            padx=20,
+            pady=10,
+            font=self.normal_font,
+            cursor='hand2'
+        ).pack(pady=15)
+
+        info_window.bind('<Escape>', lambda e: info_window.destroy())
 
     def hide(self):
         """Hide the widget"""
