@@ -47,6 +47,10 @@ class SidebarWidget:
             'snippet': '#feca57'
         }
 
+        # Backwards compatibility attributes
+        self.bg_color = self.colors['bg']
+        self.primary_color = self.colors['primary']
+
         # Fonts
         self.title_font = tkfont.Font(family="Helvetica", size=13, weight="bold")
         self.normal_font = tkfont.Font(family="Helvetica", size=10)
