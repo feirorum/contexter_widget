@@ -29,7 +29,9 @@ class HotkeyOverlayWidget:
         # Fullscreen overlay
         self.root.attributes('-fullscreen', True)
         self.root.attributes('-topmost', True)
-        self.root.configure(bg='#00000099')  # Semi-transparent black
+        # Tkinter does not accept 8-digit hex with alpha on all platforms.
+        # Use solid black background and rely on wm_attributes('-alpha') for transparency.
+        self.root.configure(bg='#000000')  # Black (transparency via wm_attributes)
 
         # Fonts
         self.title_font = tkfont.Font(family="Helvetica", size=16, weight="bold")

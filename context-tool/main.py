@@ -210,7 +210,6 @@ def main():
             # Import and run prototype
             import sys
             import importlib.util
-            from pathlib import Path
             from src.widget_mode import WidgetMode
 
             # Load the appropriate widget class
@@ -247,11 +246,21 @@ def main():
                 min_length=3,
                 use_markdown=use_markdown
             )
+            # Initialize components (loads data, sets up saver/analyzer)
             mode_instance.initialize()
 
-            # Replace widget with prototype
+            # Replace widget with prototype implementation
             mode_instance.widget = WidgetClass(on_save_snippet=mode_instance.saver)
-            mode_instance.run()
+
+            # Do NOT call mode_instance.run() here because run() calls initialize()
+            # which would recreate the default `ContextWidget` and overwrite
+            # our prototype replacement. Instead, start monitoring and run the
+            # prototype widget's mainloop directly.
+            try:
+                mode_instance.start_clipboard_monitoring()
+                mode_instance.widget.run()
+            finally:
+                mode_instance.stop_clipboard_monitoring()
 
         else:
             # Run default widget mode
