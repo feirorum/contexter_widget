@@ -1,6 +1,6 @@
-"""Always-On Sidebar Widget - Prototype 3
+"""Always-On Sidebar Widget - Prototype 3 (Enhanced)
 
-A persistent sidebar that docks to the screen edge.
+A modern persistent sidebar with tabs, favorites, and analytics dashboard.
 """
 
 import tkinter as tk
@@ -10,16 +10,19 @@ import json
 
 
 class SidebarWidget:
-    """Persistent sidebar panel docked to screen edge"""
+    """Enhanced persistent sidebar panel with tabs and modern features"""
 
     def __init__(self, on_save_snippet: Optional[Callable] = None):
         self.on_save_snippet = on_save_snippet
         self.current_data = None
         self.is_expanded = False
+        self.history = []  # Recent items
+        self.favorites = []  # Starred items
+        self.current_tab = "recent"  # recent, favorites, stats
 
         # Dimensions
-        self.width_collapsed = 40
-        self.width_expanded = 320
+        self.width_collapsed = 45
+        self.width_expanded = 350
         self.docked_side = 'right'  # or 'left'
 
         # Create window
@@ -28,12 +31,24 @@ class SidebarWidget:
         self.root.overrideredirect(True)
         self.root.attributes('-topmost', True)
 
-        # Styling
-        self.bg_color = "#f5f5f5"
-        self.primary_color = "#667eea"
+        # Modern color scheme
+        self.colors = {
+            'primary': '#667eea',
+            'secondary': '#764ba2',
+            'accent': '#43e97b',
+            'bg': '#f8f9fa',
+            'card_bg': '#ffffff',
+            'text_primary': '#2d3436',
+            'text_secondary': '#636e72',
+            'border': '#e0e0e0',
+            'contact': '#4facfe',
+            'project': '#43e97b',
+            'abbreviation': '#fa709a',
+            'snippet': '#feca57'
+        }
 
         # Fonts
-        self.title_font = tkfont.Font(family="Helvetica", size=12, weight="bold")
+        self.title_font = tkfont.Font(family="Helvetica", size=13, weight="bold")
         self.normal_font = tkfont.Font(family="Helvetica", size=10)
         self.small_font = tkfont.Font(family="Helvetica", size=9)
 

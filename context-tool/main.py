@@ -169,6 +169,11 @@ def main():
     if args.local_semantic:
         config['semantic_search']['enabled'] = True
 
+    # Auto-set mode to 'widget' if prototype is specified
+    if hasattr(args, 'prototype') and args.prototype:
+        config['app']['mode'] = 'widget'
+        print(f"📱 Prototype {args.prototype} specified - auto-setting mode to 'widget'")
+
     # Get configuration values
     data_dir = data_dir_to_check  # Already validated above
     db_path = config['database']['path']

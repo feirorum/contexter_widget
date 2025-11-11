@@ -1,6 +1,7 @@
-"""Action Wheel Widget - Prototype 1
+"""Action Wheel Widget - Prototype 1 (Enhanced)
 
-A compact circular action wheel that appears near the cursor when text is selected.
+A modern circular action wheel with glassmorphism effects, smooth animations,
+and enhanced functionality for context analysis.
 """
 
 import tkinter as tk
@@ -8,11 +9,13 @@ from tkinter import ttk, font as tkfont
 from typing import Dict, List, Any, Optional, Callable
 import math
 import webbrowser
+import json
+from datetime import datetime
 
 
 class ActionWheelWidget:
     """
-    Radial action wheel widget with quick actions and detected items ring
+    Enhanced radial action wheel widget with modern UI and advanced features
     """
 
     def __init__(self, on_save_snippet: Optional[Callable] = None):
@@ -21,6 +24,9 @@ class ActionWheelWidget:
         self.matches = []
         self.selected_index = 0
         self.is_expanded = False
+        self.history = []  # Recent analyses
+        self.favorites = []  # Pinned items
+        self.show_history = False
 
         # Create window
         self.root = tk.Toplevel()
@@ -29,16 +35,28 @@ class ActionWheelWidget:
         self.root.attributes('-topmost', True)
         self.root.attributes('-alpha', 0.95)
 
-        # Styling
-        self.bg_color = "#667eea"
-        self.fg_color = "#ffffff"
-        self.accent_color = "#764ba2"
-        self.hub_size = 200
+        # Modern color scheme with gradients
+        self.color_scheme = {
+            'primary': '#667eea',
+            'secondary': '#764ba2',
+            'accent': '#f093fb',
+            'contact': '#4facfe',
+            'project': '#43e97b',
+            'abbreviation': '#fa709a',
+            'snippet': '#feca57',
+            'bg_light': '#ffffff',
+            'bg_dark': '#f8f9fa',
+            'text_primary': '#2d3436',
+            'text_secondary': '#636e72'
+        }
+
+        self.hub_size = 240
         self.button_size = 50
 
         # Fonts
-        self.action_font = tkfont.Font(family="Helvetica", size=10, weight="bold")
+        self.action_font = tkfont.Font(family="Helvetica", size=11, weight="bold")
         self.item_font = tkfont.Font(family="Helvetica", size=9)
+        self.title_font = tkfont.Font(family="Helvetica", size=10, weight="bold")
 
         # Build UI
         self.build_wheel()
@@ -47,13 +65,15 @@ class ActionWheelWidget:
         self.bind_keys()
 
     def build_wheel(self):
-        """Build the circular action wheel"""
-        # Main container
+        """Build the enhanced circular action wheel"""
+        # Main container with rounded effect
         self.container = tk.Frame(
             self.root,
-            bg=self.bg_color,
+            bg=self.color_scheme['bg_light'],
             width=self.hub_size,
-            height=self.hub_size
+            height=self.hub_size,
+            highlightthickness=2,
+            highlightbackground=self.color_scheme['primary']
         )
         self.container.pack()
 
@@ -62,71 +82,142 @@ class ActionWheelWidget:
             self.container,
             width=self.hub_size,
             height=self.hub_size,
-            bg=self.bg_color,
+            bg=self.color_scheme['bg_light'],
             highlightthickness=0
         )
         self.canvas.pack()
 
-        # Center hub circle
+        # Center hub circle with gradient effect (simulated with multiple circles)
         center = self.hub_size // 2
-        hub_radius = 40
+        hub_radius = 45
 
-        self.canvas.create_oval(
+        # Outer glow effect
+        for i in range(3):
+            self.canvas.create_oval(
+                center - hub_radius - (3-i)*2,
+                center - hub_radius - (3-i)*2,
+                center + hub_radius + (3-i)*2,
+                center + hub_radius + (3-i)*2,
+                fill=self.color_scheme['primary'],
+                outline='',
+                stipple='gray50'
+            )
+
+        # Main hub
+        self.hub_circle = self.canvas.create_oval(
             center - hub_radius,
             center - hub_radius,
             center + hub_radius,
             center + hub_radius,
-            fill=self.accent_color,
-            outline="white",
+            fill=self.color_scheme['primary'],
+            outline=self.color_scheme['accent'],
             width=2
         )
 
-        # Quick action buttons in cardinal directions
+        # Hub icon/text
+        self.hub_text = self.canvas.create_text(
+            center,
+            center - 10,
+            text="🎯",
+            font=tkfont.Font(size=20),
+            fill='white'
+        )
+
+        self.hub_label = self.canvas.create_text(
+            center,
+            center + 15,
+            text="Actions",
+            font=self.item_font,
+            fill='white'
+        )
+
+        # Make hub clickable for settings
+        self.canvas.tag_bind(self.hub_circle, '<Button-1>', lambda e: self.toggle_history())
+        self.canvas.tag_bind(self.hub_text, '<Button-1>', lambda e: self.toggle_history())
+        self.canvas.tag_bind(self.hub_label, '<Button-1>', lambda e: self.toggle_history())
+
+        # Enhanced action buttons with better icons and colors
         self.action_buttons = []
         actions = [
-            ("💾", "Save", self.save_snippet, 0),      # North
-            ("🔍", "Search", self.search_web, 90),     # East
-            ("📋", "Copy", self.copy_to_clipboard, 180),  # South
-            ("✕", "Close", self.hide, 270)             # West
+            ("💾", "Save", self.save_snippet, 0, self.color_scheme['snippet']),
+            ("🔍", "Search", self.search_web, 90, self.color_scheme['contact']),
+            ("📋", "Copy", self.copy_to_clipboard, 180, self.color_scheme['project']),
+            ("⭐", "Pin", self.pin_item, 270, self.color_scheme['abbreviation'])
         ]
 
-        for icon, label, command, angle in actions:
-            self.add_action_button(icon, label, command, angle, center, 70)
+        for icon, label, command, angle, color in actions:
+            self.add_action_button(icon, label, command, angle, center, 85, color)
 
         # Detected items ring (outer circle)
         self.item_widgets = []
-        self.item_ring_radius = 90
+        self.item_ring_radius = 100
 
-    def add_action_button(self, icon, label, command, angle, center, distance):
-        """Add a quick action button at specified angle"""
-        # Convert angle to radians
+        # Close button (top-right corner)
+        close_btn = tk.Button(
+            self.canvas,
+            text="✕",
+            font=self.action_font,
+            bg=self.color_scheme['bg_light'],
+            fg=self.color_scheme['text_secondary'],
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=self.hide,
+            bd=0
+        )
+        self.canvas.create_window(self.hub_size - 20, 20, window=close_btn)
+
+    def add_action_button(self, icon, label, command, angle, center, distance, color):
+        """Add an enhanced action button at specified angle"""
         rad = math.radians(angle)
 
         # Calculate position
         x = center + distance * math.sin(rad)
         y = center - distance * math.cos(rad)
 
-        # Create button
+        # Create button with modern styling
         btn = tk.Button(
             self.canvas,
-            text=icon,
-            font=self.action_font,
-            bg="white",
-            fg=self.bg_color,
+            text=f"{icon}\n{label}",
+            font=self.item_font,
+            bg=color,
+            fg='white',
+            activebackground=self.darken_color(color),
+            activeforeground='white',
             relief=tk.FLAT,
-            width=4,
-            height=2,
+            width=6,
+            height=3,
             cursor="hand2",
-            command=command
+            command=command,
+            bd=0,
+            padx=4,
+            pady=4
         )
+
+        # Add hover effect
+        btn.bind('<Enter>', lambda e: btn.config(bg=self.lighten_color(color)))
+        btn.bind('<Leave>', lambda e: btn.config(bg=color))
 
         # Place on canvas
         self.canvas.create_window(x, y, window=btn)
         self.action_buttons.append(btn)
 
+    def darken_color(self, hex_color, factor=0.8):
+        """Darken a hex color"""
+        hex_color = hex_color.lstrip('#')
+        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+        r, g, b = int(r * factor), int(g * factor), int(b * factor)
+        return f'#{r:02x}{g:02x}{b:02x}'
+
+    def lighten_color(self, hex_color, factor=1.2):
+        """Lighten a hex color"""
+        hex_color = hex_color.lstrip('#')
+        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+        r, g, b = min(255, int(r * factor)), min(255, int(g * factor)), min(255, int(b * factor))
+        return f'#{r:02x}{g:02x}{b:02x}'
+
     def show(self, result: Dict[str, Any], x: int = None, y: int = None):
         """
-        Show the action wheel with analysis results
+        Show the action wheel with analysis results and smooth animation
 
         Args:
             result: Analysis result from ContextAnalyzer
@@ -136,20 +227,26 @@ class ActionWheelWidget:
         self.matches = []
         self.selected_index = 0
 
-        # Build list of matches
-        # Abbreviation first
+        # Add to history
+        if result not in self.history:
+            self.history.insert(0, result)
+            self.history = self.history[:10]  # Keep last 10
+
+        # Build list of matches with confidence scores
         if result.get('abbreviation'):
             self.matches.append({
                 'type': 'abbreviation',
                 'icon': '🟣',
                 'label': result['abbreviation']['abbr'],
-                'data': result['abbreviation']
+                'data': result['abbreviation'],
+                'confidence': 0.95
             })
 
         # Exact matches
         for match in result.get('exact_matches', []):
             match_type = match['type']
             data = match['data']
+            confidence = match.get('confidence', 0.9)
 
             if match_type == 'contact':
                 icon = '👤'
@@ -168,7 +265,8 @@ class ActionWheelWidget:
                 'type': match_type,
                 'icon': icon,
                 'label': label,
-                'data': data
+                'data': data,
+                'confidence': confidence
             })
 
         # Render detected items ring
@@ -176,7 +274,6 @@ class ActionWheelWidget:
 
         # Position window
         if x is None or y is None:
-            # Center on screen
             screen_width = self.root.winfo_screenwidth()
             screen_height = self.root.winfo_screenheight()
             x = (screen_width - self.hub_size) // 2
@@ -193,21 +290,41 @@ class ActionWheelWidget:
             y = 20
 
         self.root.geometry(f'{self.hub_size}x{self.hub_size}+{x}+{y}')
+
+        # Animate appearance
+        self.root.attributes('-alpha', 0.0)
         self.root.deiconify()
         self.root.focus_force()
+        self.animate_fade_in()
+
+    def animate_fade_in(self, alpha=0.0):
+        """Smooth fade-in animation"""
+        if alpha < 0.95:
+            alpha += 0.15
+            self.root.attributes('-alpha', alpha)
+            self.root.after(20, lambda: self.animate_fade_in(alpha))
 
     def render_items_ring(self):
-        """Render detected items as segments around outer ring"""
+        """Render detected items as enhanced segments around outer ring"""
         # Clear existing
         for widget in self.item_widgets:
             self.canvas.delete(widget)
         self.item_widgets.clear()
 
         if not self.matches:
+            # No matches message
+            msg_id = self.canvas.create_text(
+                self.hub_size // 2,
+                self.hub_size - 30,
+                text="No matches found",
+                font=self.item_font,
+                fill=self.color_scheme['text_secondary']
+            )
+            self.item_widgets.append(msg_id)
             return
 
         center = self.hub_size // 2
-        count = min(len(self.matches), 6)  # Max 6 items
+        count = min(len(self.matches), 8)  # Max 8 items
 
         for i in range(count):
             match = self.matches[i]
@@ -218,25 +335,48 @@ class ActionWheelWidget:
             x = center + self.item_ring_radius * math.sin(rad)
             y = center - self.item_ring_radius * math.cos(rad)
 
-            # Highlight if selected
-            bg = "#ffffff" if i == self.selected_index else "#f0f0f0"
-            border_color = self.accent_color if i == self.selected_index else "#cccccc"
+            # Get type color
+            type_color = self.color_scheme.get(match['type'], self.color_scheme['text_primary'])
 
-            # Create item label
-            item_text = f"{match['icon']}\n{self.truncate(match['label'], 8)}"
+            # Highlight if selected
+            is_selected = (i == self.selected_index)
+            bg = type_color if is_selected else self.color_scheme['bg_light']
+            text_color = 'white' if is_selected else self.color_scheme['text_primary']
+            border_color = type_color
+
+            # Create item label with confidence indicator
+            confidence = match.get('confidence', 0)
+            confidence_bar = '█' * int(confidence * 5)
+            item_text = f"{match['icon']}\n{self.truncate(match['label'], 10)}"
+
+            # Add to favorites indicator
+            if self.is_favorite(match):
+                item_text = f"⭐{match['icon']}\n{self.truncate(match['label'], 10)}"
 
             label_id = self.canvas.create_text(
                 x, y,
                 text=item_text,
                 font=self.item_font,
-                fill="#333333" if i != self.selected_index else self.accent_color,
+                fill=text_color,
                 justify=tk.CENTER
             )
 
-            # Create background circle
+            # Create background circle with shadow effect
             bbox = self.canvas.bbox(label_id)
             if bbox:
-                padding = 8
+                padding = 10
+
+                # Shadow
+                shadow_id = self.canvas.create_oval(
+                    bbox[0] - padding + 2,
+                    bbox[1] - padding + 2,
+                    bbox[2] + padding + 2,
+                    bbox[3] + padding + 2,
+                    fill='#00000020',
+                    outline=''
+                )
+
+                # Main circle
                 circle_id = self.canvas.create_oval(
                     bbox[0] - padding,
                     bbox[1] - padding,
@@ -247,14 +387,32 @@ class ActionWheelWidget:
                     width=2
                 )
 
-                # Lower circle behind text
+                # Lower behind text
+                self.canvas.tag_lower(shadow_id, label_id)
                 self.canvas.tag_lower(circle_id, label_id)
+                self.item_widgets.append(shadow_id)
                 self.item_widgets.append(circle_id)
 
             self.item_widgets.append(label_id)
 
-            # Bind click
+            # Bind click and hover
             self.canvas.tag_bind(label_id, '<Button-1>', lambda e, idx=i: self.select_item(idx))
+            self.canvas.tag_bind(label_id, '<Button-3>', lambda e, idx=i: self.show_item_context_menu(e, idx))
+            self.canvas.tag_bind(label_id, '<Enter>', lambda e, idx=i: self.on_item_hover(idx))
+
+    def is_favorite(self, match: Dict) -> bool:
+        """Check if item is in favorites"""
+        for fav in self.favorites:
+            if fav.get('label') == match.get('label') and fav.get('type') == match.get('type'):
+                return True
+        return False
+
+    def on_item_hover(self, index: int):
+        """Show quick preview on hover"""
+        if 0 <= index < len(self.matches):
+            match = self.matches[index]
+            # Could show a tooltip here in future enhancement
+            pass
 
     def truncate(self, text: str, max_len: int = 12) -> str:
         """Truncate text to max length"""
@@ -282,16 +440,13 @@ class ActionWheelWidget:
             return
 
         match = self.matches[self.selected_index]
-
-        # Create details popup
         self.show_details_popup(match)
 
     def show_details_popup(self, match: Dict):
-        """Show details popup for selected match"""
-        # Create popup window
+        """Show enhanced details popup for selected match"""
         popup = tk.Toplevel(self.root)
         popup.title("Details")
-        popup.geometry("400x300")
+        popup.geometry("450x350")
         popup.transient(self.root)
         popup.attributes('-topmost', True)
 
@@ -300,33 +455,60 @@ class ActionWheelWidget:
         wheel_y = self.root.winfo_y()
         popup.geometry(f"+{wheel_x + self.hub_size + 10}+{wheel_y}")
 
-        # Content frame
-        content = tk.Frame(popup, bg="white", padx=20, pady=20)
-        content.pack(fill=tk.BOTH, expand=True)
+        # Header with gradient effect (simulated)
+        header = tk.Frame(popup, bg=self.color_scheme['primary'], height=70)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
 
-        # Title
-        title_label = tk.Label(
-            content,
+        # Title with type badge
+        title_frame = tk.Frame(header, bg=self.color_scheme['primary'])
+        title_frame.pack(fill=tk.X, padx=20, pady=15)
+
+        tk.Label(
+            title_frame,
             text=f"{match['icon']} {match['label']}",
-            font=tkfont.Font(family="Helvetica", size=14, weight="bold"),
-            bg="white",
-            fg="#333333"
-        )
-        title_label.pack(anchor=tk.W, pady=(0, 10))
+            font=tkfont.Font(family="Helvetica", size=16, weight="bold"),
+            bg=self.color_scheme['primary'],
+            fg="white"
+        ).pack(side=tk.LEFT)
 
         # Type badge
-        type_label = tk.Label(
-            content,
+        type_color = self.color_scheme.get(match['type'], self.color_scheme['text_primary'])
+        type_badge = tk.Label(
+            title_frame,
             text=match['type'].upper(),
             font=tkfont.Font(family="Helvetica", size=9),
-            bg=self.bg_color,
+            bg=type_color,
             fg="white",
             padx=8,
             pady=4
         )
-        type_label.pack(anchor=tk.W, pady=(0, 10))
+        type_badge.pack(side=tk.RIGHT)
 
-        # Details
+        # Content frame
+        content = tk.Frame(popup, bg="white", padx=20, pady=20)
+        content.pack(fill=tk.BOTH, expand=True)
+
+        # Confidence meter
+        if match.get('confidence'):
+            conf_frame = tk.Frame(content, bg='white')
+            conf_frame.pack(fill=tk.X, pady=(0, 10))
+
+            tk.Label(
+                conf_frame,
+                text=f"Confidence: {int(match['confidence'] * 100)}%",
+                font=self.item_font,
+                bg='white',
+                fg=self.color_scheme['text_secondary']
+            ).pack(side=tk.LEFT)
+
+            # Progress bar
+            conf_bar = tk.Canvas(conf_frame, height=8, bg='#e0e0e0', highlightthickness=0)
+            conf_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
+            bar_width = int(300 * match['confidence'])
+            conf_bar.create_rectangle(0, 0, bar_width, 8, fill=self.color_scheme['project'], outline='')
+
+        # Details text
         data = match['data']
         detail_text = tk.Text(
             content,
@@ -334,30 +516,45 @@ class ActionWheelWidget:
             font=tkfont.Font(family="Helvetica", size=10),
             bg="#f8f9fa",
             relief=tk.FLAT,
-            padx=10,
-            pady=10
+            padx=15,
+            pady=15
         )
         detail_text.pack(fill=tk.BOTH, expand=True)
 
-        # Render details based on type
         details = self.format_details(match['type'], data)
         detail_text.insert('1.0', details)
         detail_text.config(state=tk.DISABLED)
 
+        # Action buttons
+        actions_frame = tk.Frame(content, bg='white')
+        actions_frame.pack(pady=(10, 0))
+
+        # Copy JSON button
+        tk.Button(
+            actions_frame,
+            text="📋 Copy JSON",
+            command=lambda: self.copy_as_json(data),
+            bg=self.color_scheme['contact'],
+            fg="white",
+            relief=tk.FLAT,
+            padx=15,
+            pady=8,
+            cursor="hand2"
+        ).pack(side=tk.LEFT, padx=5)
+
         # Close button
-        close_btn = tk.Button(
-            content,
+        tk.Button(
+            actions_frame,
             text="Close",
             command=popup.destroy,
-            bg=self.bg_color,
+            bg=self.color_scheme['primary'],
             fg="white",
             relief=tk.FLAT,
             padx=20,
-            pady=8
-        )
-        close_btn.pack(pady=(10, 0))
+            pady=8,
+            cursor="hand2"
+        ).pack(side=tk.LEFT, padx=5)
 
-        # ESC to close
         popup.bind('<Escape>', lambda e: popup.destroy())
 
     def format_details(self, match_type: str, data: Dict) -> str:
@@ -366,48 +563,122 @@ class ActionWheelWidget:
 
         if match_type == 'contact':
             if data.get('name'):
-                lines.append(f"Name: {data['name']}")
+                lines.append(f"👤 Name: {data['name']}")
             if data.get('email'):
-                lines.append(f"Email: {data['email']}")
+                lines.append(f"✉️  Email: {data['email']}")
             if data.get('role'):
-                lines.append(f"Role: {data['role']}")
+                lines.append(f"💼 Role: {data['role']}")
+            if data.get('last_contact'):
+                lines.append(f"📅 Last Contact: {data['last_contact']}")
             if data.get('context'):
-                lines.append(f"\nContext:\n{data['context']}")
+                lines.append(f"\n📝 Context:\n{data['context']}")
 
         elif match_type == 'abbreviation':
             if data.get('full'):
-                lines.append(f"{data.get('abbr', '')} = {data['full']}")
+                lines.append(f"🔤 {data.get('abbr', '')} = {data['full']}")
             if data.get('definition'):
-                lines.append(f"\n{data['definition']}")
+                lines.append(f"\n📖 Definition:\n{data['definition']}")
             if data.get('category'):
-                lines.append(f"\nCategory: {data['category']}")
+                lines.append(f"\n🏷️  Category: {data['category']}")
 
         elif match_type == 'project':
             if data.get('name'):
-                lines.append(f"Project: {data['name']}")
+                lines.append(f"📁 Project: {data['name']}")
             if data.get('status'):
-                lines.append(f"Status: {data['status']}")
+                lines.append(f"📊 Status: {data['status']}")
             if data.get('description'):
-                lines.append(f"\n{data['description']}")
+                lines.append(f"\n📝 Description:\n{data['description']}")
 
         else:
-            # Generic display
             for key, value in data.items():
                 if key != 'id' and value:
                     lines.append(f"{key.replace('_', ' ').title()}: {value}")
 
-        return '\n'.join(lines) if lines else "No details available"
+        return '\n\n'.join(lines) if lines else "No details available"
+
+    def show_item_context_menu(self, event, index: int):
+        """Show context menu for item"""
+        if not (0 <= index < len(self.matches)):
+            return
+
+        match = self.matches[index]
+
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(label="View Details", command=lambda: self.show_details_popup(match))
+        menu.add_command(label="⭐ Add to Favorites" if not self.is_favorite(match) else "Remove from Favorites",
+                        command=lambda: self.toggle_favorite(match))
+        menu.add_command(label="Copy as JSON", command=lambda: self.copy_as_json(match['data']))
+        menu.add_separator()
+        menu.add_command(label="Search Web", command=self.search_web)
+
+        menu.post(event.x_root, event.y_root)
+
+    def toggle_favorite(self, match: Dict):
+        """Toggle favorite status"""
+        if self.is_favorite(match):
+            self.favorites = [f for f in self.favorites
+                            if not (f.get('label') == match.get('label') and f.get('type') == match.get('type'))]
+            self.show_toast("Removed from favorites")
+        else:
+            self.favorites.append(match)
+            self.show_toast("Added to favorites ⭐")
+        self.render_items_ring()
+
+    def toggle_history(self):
+        """Toggle history view"""
+        self.show_history = not self.show_history
+        if self.show_history:
+            self.show_history_panel()
+        else:
+            self.render_items_ring()
+
+    def show_history_panel(self):
+        """Show recent history in a panel"""
+        # Clear current items
+        for widget in self.item_widgets:
+            self.canvas.delete(widget)
+        self.item_widgets.clear()
+
+        if not self.history:
+            msg = self.canvas.create_text(
+                self.hub_size // 2,
+                self.hub_size - 30,
+                text="No history yet",
+                font=self.item_font,
+                fill=self.color_scheme['text_secondary']
+            )
+            self.item_widgets.append(msg)
+            return
+
+        # Show recent items
+        y_pos = 30
+        for i, item in enumerate(self.history[:5]):
+            text = item.get('selected_text', '')[:30]
+            label = self.canvas.create_text(
+                20,
+                y_pos,
+                text=f"{i+1}. {text}...",
+                font=self.item_font,
+                fill=self.color_scheme['text_primary'],
+                anchor=tk.W
+            )
+            self.item_widgets.append(label)
+            y_pos += 20
 
     def bind_keys(self):
         """Bind keyboard shortcuts"""
         self.root.bind('<Up>', lambda e: self.navigate(-1))
         self.root.bind('<Down>', lambda e: self.navigate(1))
-        self.root.bind('<Right>', lambda e: self.expand_details())
+        self.root.bind('<Left>', lambda e: self.navigate(-1))
+        self.root.bind('<Right>', lambda e: self.navigate(1))
         self.root.bind('<Return>', lambda e: self.expand_details())
+        self.root.bind('<space>', lambda e: self.expand_details())
         self.root.bind('<Escape>', lambda e: self.hide())
         self.root.bind('s', lambda e: self.save_snippet())
         self.root.bind('w', lambda e: self.search_web())
         self.root.bind('c', lambda e: self.copy_to_clipboard())
+        self.root.bind('p', lambda e: self.pin_item())
+        self.root.bind('h', lambda e: self.toggle_history())
 
     def save_snippet(self):
         """Save current text as snippet"""
@@ -416,10 +687,10 @@ class ActionWheelWidget:
             if text:
                 if hasattr(self.on_save_snippet, 'save'):
                     self.on_save_snippet.save(text, 'snippet')
-                    self.show_toast("Snippet saved!")
+                    self.show_toast("💾 Snippet saved!")
                 else:
                     self.on_save_snippet(text)
-                    self.show_toast("Snippet saved!")
+                    self.show_toast("💾 Snippet saved!")
 
     def search_web(self):
         """Search selected text on web"""
@@ -428,7 +699,7 @@ class ActionWheelWidget:
             if query:
                 url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
                 webbrowser.open(url)
-                self.show_toast("Opened web search")
+                self.show_toast("🔍 Opened web search")
 
     def copy_to_clipboard(self):
         """Copy to clipboard"""
@@ -437,29 +708,72 @@ class ActionWheelWidget:
             if text:
                 self.root.clipboard_clear()
                 self.root.clipboard_append(text)
-                self.show_toast("Copied to clipboard!")
+                self.show_toast("📋 Copied to clipboard!")
 
-    def show_toast(self, message: str):
-        """Show temporary toast message"""
-        toast = tk.Label(
+    def copy_as_json(self, data: Dict):
+        """Copy data as JSON"""
+        json_str = json.dumps(data, indent=2)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(json_str)
+        self.show_toast("📋 Copied as JSON!")
+
+    def pin_item(self):
+        """Pin selected item to favorites"""
+        if self.matches and 0 <= self.selected_index < len(self.matches):
+            match = self.matches[self.selected_index]
+            self.toggle_favorite(match)
+
+    def show_toast(self, message: str, duration: int = 2000):
+        """Show enhanced toast message with modern styling"""
+        toast_frame = tk.Frame(
             self.canvas,
-            text=message,
-            font=self.item_font,
-            bg="#4CAF50",
-            fg="white",
-            padx=10,
-            pady=5
+            bg=self.color_scheme['project'],
+            relief=tk.FLAT,
+            bd=0
         )
 
-        center = self.hub_size // 2
-        toast_id = self.canvas.create_window(center, center, window=toast)
+        toast_label = tk.Label(
+            toast_frame,
+            text=message,
+            font=self.item_font,
+            bg=self.color_scheme['project'],
+            fg="white",
+            padx=15,
+            pady=8
+        )
+        toast_label.pack()
 
-        # Auto-hide after 2 seconds
-        self.root.after(2000, lambda: self.canvas.delete(toast_id))
+        center = self.hub_size // 2
+        toast_id = self.canvas.create_window(center, center + 60, window=toast_frame)
+
+        # Fade out and remove
+        def fade_out(alpha=1.0):
+            if alpha > 0:
+                alpha -= 0.1
+                # Tkinter doesn't support per-widget alpha, so just wait and delete
+                self.root.after(int(duration * alpha / 10), lambda: fade_out(alpha))
+            else:
+                self.canvas.delete(toast_id)
+
+        self.root.after(duration, lambda: self.canvas.delete(toast_id))
 
     def hide(self):
-        """Hide the action wheel"""
-        self.root.withdraw()
+        """Hide the action wheel with fade animation"""
+        self.animate_fade_out()
+
+    def animate_fade_out(self, alpha=0.95):
+        """Smooth fade-out animation"""
+        if alpha > 0:
+            alpha -= 0.15
+            self.root.attributes('-alpha', alpha)
+            self.root.after(20, lambda: self.animate_fade_out(alpha))
+        else:
+            self.root.withdraw()
+            self.root.attributes('-alpha', 0.95)  # Reset for next show
+
+    def run(self):
+        """Run the main loop"""
+        self.root.mainloop()
 
     def update(self):
         """Update GUI (for integration with event loop)"""

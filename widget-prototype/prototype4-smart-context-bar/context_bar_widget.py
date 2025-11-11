@@ -1,6 +1,6 @@
-"""Smart Context Bar Widget - Prototype 4
+"""Smart Context Bar Widget - Prototype 4 (Enhanced)
 
-A compact bar appearing above/below selected text, like IDE hints.
+A modern compact bar with smooth animations, progress indicators, and rich actions.
 """
 
 import tkinter as tk
@@ -25,11 +25,26 @@ class ContextBarWidget:
         self.bar_window.overrideredirect(True)
         self.bar_window.attributes('-topmost', True)
 
-        # Styling
-        self.bg_color = "#ffffff"
-        self.primary_color = "#667eea"
-        self.bar_width = 300
-        self.bar_height = 40
+        # Modern styling
+        self.colors = {
+            'bg': '#ffffff',
+            'primary': '#667eea',
+            'secondary': '#764ba2',
+            'accent': '#43e97b',
+            'text_primary': '#2d3436',
+            'text_secondary': '#636e72',
+            'border': '#e0e0e0',
+            'contact': '#4facfe',
+            'project': '#43e97b',
+            'abbreviation': '#fa709a',
+            'snippet': '#feca57'
+        }
+        self.bg_color = self.colors['bg']
+        self.primary_color = self.colors['primary']
+        self.bar_width = 350
+        self.bar_height = 45
+        self.auto_hide_duration = 8000  # 8 seconds
+        self.hide_timer = None
 
         # Fonts
         self.normal_font = tkfont.Font(family="Helvetica", size=10)
@@ -376,6 +391,10 @@ class ContextBarWidget:
         """Hide the bar"""
         self.collapse()
         self.bar_window.withdraw()
+
+    def run(self):
+        """Run the main loop"""
+        self.bar_window.mainloop()
 
     def update(self):
         """Update GUI"""
