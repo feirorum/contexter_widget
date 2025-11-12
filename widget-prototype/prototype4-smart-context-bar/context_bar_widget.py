@@ -18,6 +18,7 @@ class ContextBarWidget:
         self.matches = []
         self.current_index = 0
         self.is_expanded = False
+        self.hide_timer_id = None  # Track timer for resetting
 
         # Create compact bar window
         self.bar_window = tk.Toplevel()
@@ -82,6 +83,10 @@ class ContextBarWidget:
         # Content frame with better spacing
         content = tk.Frame(self.bar_frame, bg=self.bg_color)
         content.pack(fill=tk.BOTH, expand=True, padx=14, pady=10)
+
+        # Bind clicks to reset timer
+        self.bar_frame.bind('<Button-1>', lambda e: self.reset_hide_timer())
+        content.bind('<Button-1>', lambda e: self.reset_hide_timer())
 
         # Match label - Modern typography
         self.match_label = tk.Label(
@@ -197,8 +202,8 @@ class ContextBarWidget:
         self.bar_window.geometry(f'{self.bar_width}x{self.bar_height}+{x}+{y}')
         self.bar_window.deiconify()
 
-        # Auto-hide after 5 seconds
-        self.bar_window.after(5000, self.hide)
+        # Auto-hide after 8 seconds (reset on interaction)
+        self.reset_hide_timer()
 
     def update_bar_display(self):
         """Update bar display with current match"""
@@ -219,23 +224,38 @@ class ContextBarWidget:
             self.nav_label.config(text="")
 
     def cycle_match(self, direction: int = 1):
-        """Cycle through matches"""
+        """Cycle through matches - also resets hide timer"""
         if not self.matches or len(self.matches) <= 1:
             return
 
         self.current_index = (self.current_index + direction) % len(self.matches)
         self.update_bar_display()
 
+        # Reset hide timer on user interaction
+        self.reset_hide_timer()
+
+        # Auto-expand when cycling to show more details
+        if not self.is_expanded and len(self.matches) > 1:
+            self.expand()
+
     def toggle_expand(self):
-        """Toggle expanded view"""
+        """Toggle expanded view - also resets hide timer"""
         if self.is_expanded:
             self.collapse()
         else:
             self.expand()
 
+        # Reset hide timer on user interaction
+        self.reset_hide_timer()
+
     def expand(self):
-        """Expand to show full details"""
+        """Expand to show full details - updates when match changes"""
         if not self.matches:
+            return
+
+        # If already expanded, just refresh the content
+        if self.is_expanded and self.popup_window:
+            self._refresh_popup_content()
             return
 
         self.is_expanded = True
@@ -249,6 +269,10 @@ class ContextBarWidget:
         self.popup_window.title("Details")
         self.popup_window.overrideredirect(True)
         self.popup_window.attributes('-topmost', True)
+
+        # Bind mouse interaction to reset timer
+        self.popup_window.bind('<Button-1>', lambda e: self.reset_hide_timer())
+        self.popup_window.bind('<Key>', lambda e: self.reset_hide_timer())
 
         # Position near bar
         bar_x = self.bar_window.winfo_x()
@@ -358,6 +382,108 @@ class ContextBarWidget:
             self.popup_window = None
         self.expand_btn.config(text="▼")
 
+    def _refresh_popup_content(self):
+        """Refresh popup content when cycling through matches"""
+        if not self.popup_window or not self.matches:
+            return
+
+        match = self.matches[self.current_index]
+
+        # Clear existing content (find the frame with details)
+        for widget in self.popup_window.winfo_children():
+            if isinstance(widget, tk.Frame):
+                # This is the shadow frame
+                for child in widget.winfo_children():
+                    if isinstance(child, tk.Frame):
+                        # This is the content frame - update its children
+                        self._update_popup_frame(child, match)
+                        break
+                break
+
+    def _update_popup_frame(self, frame, match):
+        """Update the popup frame with new match data"""
+        # Clear existing widgets
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+        # Rebuild header
+        header = tk.Frame(frame, bg=self.primary_color, height=58)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text=f"{match['icon']} {match['label']}",
+            font=tkfont.Font(family="Segoe UI", size=14, weight="bold"),
+            bg=self.primary_color,
+            fg='white'
+        ).pack(side=tk.LEFT, padx=18, pady=14)
+
+        tk.Button(
+            header,
+            text="▲",
+            font=self.small_font,
+            bg=self.primary_color,
+            fg='white',
+            relief=tk.FLAT,
+            command=self.collapse,
+            cursor='hand2',
+            padx=10,
+            pady=4
+        ).pack(side=tk.RIGHT, padx=16)
+
+        # Rebuild details
+        details_frame = tk.Frame(frame, bg='white', padx=18, pady=16)
+        details_frame.pack(fill=tk.BOTH, expand=True)
+
+        details_text = self.format_details(match['type'], match['data'])
+
+        tk.Label(
+            details_frame,
+            text=details_text,
+            font=self.normal_font,
+            bg='white',
+            fg='#2d3436',
+            justify=tk.LEFT,
+            anchor=tk.NW,
+            wraplength=400
+        ).pack(fill=tk.BOTH, expand=True)
+
+        # Rebuild actions
+        actions = tk.Frame(frame, bg='#f8f9fa')
+        actions.pack(fill=tk.X, padx=18, pady=12)
+
+        btn_style = {
+            'font': self.normal_font,
+            'bg': self.primary_color,
+            'fg': 'white',
+            'relief': tk.FLAT,
+            'cursor': 'hand2',
+            'padx': 14,
+            'pady': 7
+        }
+
+        tk.Button(
+            actions,
+            text="💾 Save",
+            command=self.save_snippet,
+            **btn_style
+        ).pack(side=tk.LEFT, padx=(0, 6))
+
+        tk.Button(
+            actions,
+            text="🔍 Search",
+            command=self.search_web,
+            **btn_style
+        ).pack(side=tk.LEFT, padx=6)
+
+        tk.Button(
+            actions,
+            text="📋 Copy",
+            command=self.copy_to_clipboard,
+            **btn_style
+        ).pack(side=tk.LEFT, padx=6)
+
     def format_details(self, match_type: str, data: Dict) -> str:
         """Format details for display"""
         lines = []
@@ -413,39 +539,48 @@ class ContextBarWidget:
 CONCEPT:
 A compact bar appearing near selected text (like IDE hints),
 showing context matches with minimal screen real estate.
+Stays visible as long as you interact with it!
 
 HOW TO USE:
-• Bar appears automatically near cursor when you copy text
-• Click ▼ to expand and show full details
-• Use arrows to cycle through multiple matches
-• Auto-hides after 8 seconds (configurable)
-• Click info icon for this help
+• Bar appears automatically when you copy text
+• Use ↑↓ arrows or scroll wheel to cycle through matches
+• Cycling automatically expands to show full details
+• Press →/Enter to expand, ← to collapse
+• Bar auto-hides after 8 seconds of NO interaction
+• ANY interaction (arrows, click, scroll) resets the 8s timer
 
 KEYBOARD SHORTCUTS:
-• Tab/↓ - Next match
-• ↑ - Previous match
-• →/Enter - Expand details
+• ↑ - Previous match (resets timer, auto-expands)
+• ↓/Tab - Next match (resets timer, auto-expands)
+• →/Enter - Expand details (resets timer)
 • ← - Collapse details
-• Ctrl+S - Save snippet
-• ESC - Hide bar
-• F1 - Show this help
+• Ctrl+S - Save snippet (resets timer)
+• ESC - Hide bar immediately
+• F1 - Show this help (resets timer)
+
+MOUSE SUPPORT:
+• Scroll wheel - Cycle through matches
+• Click buttons - Perform actions
+• Any click resets the 8-second hide timer
 
 SPECIAL FEATURES:
+• Smart auto-hide: only hides after 8s of inactivity
+• Live content updates when cycling through matches
+• Auto-expansion when navigating multiple matches
 • Auto-positioning (avoids screen edges)
-• Countdown indicator for auto-hide
-• Inline expansion (no popup windows)
+• Full keyboard and mouse navigation
 • Minimal, unobtrusive design
-• Quick action buttons in expanded view
 
 BEST FOR:
 • Users who prefer subtle, non-intrusive UIs
 • Workflow integration without interruption
 • Quick glances at context without focus stealing
+• Keyboard-driven workflows
         """
 
         info_window = tk.Toplevel(self.bar_window)
         info_window.title("About This Prototype")
-        info_window.geometry("500x550")
+        info_window.geometry("580x700")
         info_window.transient(self.bar_window)
         info_window.attributes('-topmost', True)
 
@@ -455,9 +590,12 @@ BEST FOR:
         x = bar_x
         y = bar_y + self.bar_height + 10
         # If would go off screen, position above
-        if y + 550 > self.bar_window.winfo_screenheight():
-            y = bar_y - 560
+        if y + 700 > self.bar_window.winfo_screenheight():
+            y = bar_y - 710
         info_window.geometry(f"+{x}+{y}")
+
+        # Reset hide timer when showing info
+        self.reset_hide_timer()
 
         # Content
         text_widget = tk.Text(
@@ -494,17 +632,36 @@ BEST FOR:
         self.bar_window.bind('<Tab>', lambda e: self.cycle_match(1))
         self.bar_window.bind('<Down>', lambda e: self.cycle_match(1))
         self.bar_window.bind('<Up>', lambda e: self.cycle_match(-1))
-        self.bar_window.bind('<Right>', lambda e: self.expand())
-        self.bar_window.bind('<Return>', lambda e: self.expand())
+        self.bar_window.bind('<Right>', lambda e: [self.expand(), self.reset_hide_timer()])
+        self.bar_window.bind('<Return>', lambda e: [self.expand(), self.reset_hide_timer()])
         self.bar_window.bind('<Left>', lambda e: self.collapse())
         self.bar_window.bind('<Escape>', lambda e: self.hide())
-        self.bar_window.bind('<Control-s>', lambda e: self.save_snippet())
-        self.bar_window.bind('<F1>', lambda e: self.show_info())
+        self.bar_window.bind('<Control-s>', lambda e: [self.save_snippet(), self.reset_hide_timer()])
+        self.bar_window.bind('<F1>', lambda e: [self.show_info(), self.reset_hide_timer()])
+
+        # Mouse wheel support for cycling
+        self.bar_window.bind('<Button-4>', lambda e: self.cycle_match(-1))  # Scroll up
+        self.bar_window.bind('<Button-5>', lambda e: self.cycle_match(1))   # Scroll down
+        self.bar_window.bind('<MouseWheel>', lambda e: self.cycle_match(-1 if e.delta > 0 else 1))  # Windows/Mac
 
     def hide(self):
         """Hide the bar"""
         self.collapse()
         self.bar_window.withdraw()
+
+        # Cancel any pending hide timer
+        if self.hide_timer_id:
+            self.bar_window.after_cancel(self.hide_timer_id)
+            self.hide_timer_id = None
+
+    def reset_hide_timer(self):
+        """Reset the auto-hide timer (8 seconds from now)"""
+        # Cancel existing timer
+        if self.hide_timer_id:
+            self.bar_window.after_cancel(self.hide_timer_id)
+
+        # Start new timer
+        self.hide_timer_id = self.bar_window.after(8000, self.hide)
 
     def run(self):
         """Run the main loop"""
