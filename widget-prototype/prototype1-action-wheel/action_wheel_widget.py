@@ -1,7 +1,7 @@
-"""Action Wheel Widget - Prototype 1 (Enhanced)
+"""Action Wheel Widget - Prototype 1 (Radial Navigation)
 
-A modern circular action wheel with glassmorphism effects, smooth animations,
-and enhanced functionality for context analysis.
+A modern circular action wheel with hierarchical radial navigation.
+Navigate through matches like a tree: select direction → navigate up/down → expand outward.
 """
 
 import tkinter as tk
@@ -15,56 +15,45 @@ from datetime import datetime
 
 class ActionWheelWidget:
     """
-    Enhanced radial action wheel widget with modern UI and advanced features
+    Enhanced radial action wheel with tree-like hierarchical navigation
     """
 
     def __init__(self, on_save_snippet: Optional[Callable] = None):
         self.on_save_snippet = on_save_snippet
         self.current_data = None
         self.matches = []
-        self.selected_index = 0
-        self.is_expanded = False
-        self.history = []  # Recent analyses
-        self.favorites = []  # Pinned items
-        self.show_history = False
+        self.selected_match_index = 0
+        self.navigation_mode = 'wheel'  # 'wheel' or 'matches'
+        self.selected_action = None  # Which wheel slice is selected
+        self.detail_level = 0  # 0=collapsed, 1=expanded
 
         # Create window
         self.root = tk.Toplevel()
         self.root.withdraw()  # Start hidden
-        self.root.overrideredirect(True)  # No window decorations
+        self.root.overrideredirect(True)
         self.root.attributes('-topmost', True)
-        self.root.attributes('-alpha', 0.95)
-        # Use window-level alpha for translucency (cross-platform)
-        # This gives a global transparency which we can use to simulate
-        # semi-transparent shadows and overlays without per-item alpha.
-        try:
-            self.root.wm_attributes('-alpha', 0.95)
-        except Exception:
-            # wm_attributes may not be supported on some platforms; ignore safely
-            pass
 
-        # Modern color scheme with gradients
-        self.color_scheme = {
+        # Modern color scheme
+        self.colors = {
             'primary': '#667eea',
             'secondary': '#764ba2',
-            'accent': '#f093fb',
+            'accent': '#43e97b',
             'contact': '#4facfe',
             'project': '#43e97b',
             'abbreviation': '#fa709a',
             'snippet': '#feca57',
-            'bg_light': '#ffffff',
-            'bg_dark': '#f8f9fa',
-            'text_primary': '#2d3436',
-            'text_secondary': '#636e72'
+            'bg': '#ffffff',
+            'text': '#2d3436',
+            'text_light': '#636e72'
         }
 
-        self.hub_size = 280  # Larger for modern look
-        self.button_size = 60
+        self.wheel_size = 700  # Larger to accommodate everything
 
         # Modern fonts
+        self.title_font = tkfont.Font(family="Segoe UI", size=14, weight="bold")
         self.action_font = tkfont.Font(family="Segoe UI", size=12, weight="bold")
-        self.item_font = tkfont.Font(family="Segoe UI", size=10)
-        self.title_font = tkfont.Font(family="Segoe UI", size=11, weight="bold")
+        self.normal_font = tkfont.Font(family="Segoe UI", size=11)
+        self.small_font = tkfont.Font(family="Segoe UI", size=10)
 
         # Build UI
         self.build_wheel()
@@ -73,634 +62,544 @@ class ActionWheelWidget:
         self.bind_keys()
 
     def build_wheel(self):
-        """Build the enhanced circular action wheel"""
-        # Main container with modern shadow effect
+        """Build the hierarchical navigation wheel"""
+        # Main container
         self.container = tk.Frame(
             self.root,
-            bg=self.color_scheme['bg_light'],
-            width=self.hub_size,
-            height=self.hub_size,
-            highlightthickness=0
+            bg=self.colors['bg'],
+            width=self.wheel_size,
+            height=self.wheel_size
         )
-        self.container.pack(padx=8, pady=8)
+        self.container.pack()
 
-        # Canvas for circular layout with modern styling
+        # Canvas for drawing
         self.canvas = tk.Canvas(
             self.container,
-            width=self.hub_size,
-            height=self.hub_size,
-            bg=self.color_scheme['bg_light'],
-            highlightthickness=3,
-            highlightbackground='#e0e0e0'
+            width=self.wheel_size,
+            height=self.wheel_size,
+            bg=self.colors['bg'],
+            highlightthickness=0
         )
         self.canvas.pack()
 
-        # Center hub circle with modern gradient effect
-        center = self.hub_size // 2
-        hub_radius = 50
+        center = self.wheel_size // 2
 
-        # Shadow circles (layered for depth)
+        # Selected text area (top)
+        self.selected_text_frame = tk.Frame(self.canvas, bg='#f8f9fa', relief=tk.FLAT)
+        self.selected_text_label = tk.Label(
+            self.selected_text_frame,
+            text="",
+            font=self.normal_font,
+            bg='#f8f9fa',
+            fg=self.colors['text'],
+            wraplength=600,
+            justify=tk.LEFT,
+            padx=15,
+            pady=10
+        )
+        self.selected_text_label.pack()
+        self.canvas.create_window(center, 60, window=self.selected_text_frame)
+
+        # Central hub
+        hub_radius = 60
+
+        # Shadow effect
         for i in range(5, 0, -1):
-            gray_val = 200 + i * 10
+            gray = 200 + i * 10
             self.canvas.create_oval(
                 center - hub_radius - i,
-                center - hub_radius - i,
+                center - hub_radius - i + 80,
                 center + hub_radius + i,
-                center + hub_radius + i,
-                fill=f'#{gray_val:02x}{gray_val:02x}{gray_val:02x}',
+                center + hub_radius + i + 80,
+                fill=f'#{gray:02x}{gray:02x}{gray:02x}',
                 outline=''
             )
 
-        # Main hub with modern flat design
+        # Main hub
         self.hub_circle = self.canvas.create_oval(
             center - hub_radius,
-            center - hub_radius,
+            center - hub_radius + 80,
             center + hub_radius,
-            center + hub_radius,
-            fill=self.color_scheme['primary'],
-            outline='',
-            width=0
-        )
-
-        # Inner highlight circle for depth
-        self.canvas.create_oval(
-            center - hub_radius + 3,
-            center - hub_radius + 3,
-            center + hub_radius - 3,
-            center + hub_radius - 3,
-            fill='',
+            center + hub_radius + 80,
+            fill=self.colors['primary'],
             outline='white',
-            width=1
+            width=2
         )
 
-        # Hub icon/text with modern styling
-        self.hub_text = self.canvas.create_text(
+        self.hub_icon = self.canvas.create_text(
             center,
-            center - 12,
+            center + 70,
             text="🎯",
-            font=tkfont.Font(size=24),
+            font=tkfont.Font(size=28),
             fill='white'
         )
 
         self.hub_label = self.canvas.create_text(
             center,
-            center + 18,
-            text="Actions",
-            font=tkfont.Font(family="Segoe UI", size=10, weight="bold"),
+            center + 95,
+            text="Context",
+            font=self.action_font,
             fill='white'
         )
 
-        # Make hub clickable for settings
-        self.canvas.tag_bind(self.hub_circle, '<Button-1>', lambda e: self.toggle_history())
-        self.canvas.tag_bind(self.hub_text, '<Button-1>', lambda e: self.toggle_history())
-        self.canvas.tag_bind(self.hub_label, '<Button-1>', lambda e: self.toggle_history())
+        # Action slices (4 main directions)
+        self.action_slices = {
+            'matches': {'angle': 0, 'label': 'Matches', 'icon': '📑', 'color': self.colors['primary']},
+            'save': {'angle': 90, 'label': 'Save', 'icon': '💾', 'color': self.colors['snippet']},
+            'search': {'angle': 180, 'label': 'Search', 'icon': '🔍', 'color': self.colors['contact']},
+            'actions': {'angle': 270, 'label': 'Actions', 'icon': '⚡', 'color': self.colors['project']}
+        }
 
-        # Enhanced action buttons with better icons and colors
-        self.action_buttons = []
-        actions = [
-            ("💾", "Save", self.save_snippet, 0, self.color_scheme['snippet']),
-            ("🔍", "Search", self.search_web, 90, self.color_scheme['contact']),
-            ("📋", "Copy", self.copy_to_clipboard, 180, self.color_scheme['project']),
-            ("⭐", "Pin", self.pin_item, 270, self.color_scheme['abbreviation'])
-        ]
+        # Detail area (right side) - for expanded info
+        self.detail_frame = tk.Frame(self.canvas, bg='white', relief=tk.SOLID, bd=1)
+        self.detail_text = tk.Text(
+            self.detail_frame,
+            width=35,
+            height=15,
+            font=self.normal_font,
+            wrap=tk.WORD,
+            padx=15,
+            pady=15,
+            bg='white',
+            relief=tk.FLAT
+        )
+        self.detail_text.pack()
+        # Initially hidden
 
-        for icon, label, command, angle, color in actions:
-            self.add_action_button(icon, label, command, angle, center, 85, color)
+        # Match list area (left side) - for showing matches
+        self.match_list_frame = tk.Frame(self.canvas, bg='white', relief=tk.SOLID, bd=1)
+        # Will be populated dynamically
 
-        # Detected items ring (outer circle)
-        self.item_widgets = []
-        self.item_ring_radius = 100
-
-        # Info button (top-left corner)
+        # Info and close buttons
         info_btn = tk.Button(
             self.canvas,
             text="ℹ️",
             font=self.action_font,
-            bg=self.color_scheme['bg_light'],
-            fg=self.color_scheme['primary'],
+            bg=self.colors['bg'],
+            fg=self.colors['primary'],
             relief=tk.FLAT,
-            cursor="hand2",
+            cursor='hand2',
             command=self.show_info,
             bd=0
         )
-        self.canvas.create_window(20, 20, window=info_btn)
+        self.canvas.create_window(30, 30, window=info_btn)
 
-        # Close button (top-right corner)
         close_btn = tk.Button(
             self.canvas,
             text="✕",
             font=self.action_font,
-            bg=self.color_scheme['bg_light'],
-            fg=self.color_scheme['text_secondary'],
+            bg=self.colors['bg'],
+            fg=self.colors['text_light'],
             relief=tk.FLAT,
-            cursor="hand2",
+            cursor='hand2',
             command=self.hide,
             bd=0
         )
-        self.canvas.create_window(self.hub_size - 20, 20, window=close_btn)
+        self.canvas.create_window(self.wheel_size - 30, 30, window=close_btn)
 
-    def add_action_button(self, icon, label, command, angle, center, distance, color):
-        """Add an enhanced action button at specified angle"""
-        rad = math.radians(angle)
-
-        # Calculate position
-        x = center + distance * math.sin(rad)
-        y = center - distance * math.cos(rad)
-
-        # Create button frame for shadow effect
-        btn_frame = tk.Frame(self.canvas, bg=self.color_scheme['bg_light'])
-
-        # Create button with modern flat design
-        btn = tk.Button(
-            btn_frame,
-            text=f"{icon}\n{label}",
-            font=self.action_font,
-            bg=color,
-            fg='white',
-            activebackground=self.darken_color(color),
-            activeforeground='white',
-            relief=tk.FLAT,
-            width=7,
-            height=3,
-            cursor="hand2",
-            command=command,
-            bd=0,
-            padx=8,
-            pady=8,
-            highlightthickness=0
+        # Navigation hint
+        self.nav_hint = self.canvas.create_text(
+            center,
+            self.wheel_size - 30,
+            text="←→ Select | ↑↓ Navigate | →→ Expand | ESC Close",
+            font=self.small_font,
+            fill=self.colors['text_light']
         )
-        btn.pack()
-
-        # Modern hover effect
-        btn.bind('<Enter>', lambda e: btn.config(bg=self.lighten_color(color), font=tkfont.Font(family="Segoe UI", size=13, weight="bold")))
-        btn.bind('<Leave>', lambda e: btn.config(bg=color, font=self.action_font))
-
-        # Place on canvas
-        self.canvas.create_window(x, y, window=btn_frame)
-        self.action_buttons.append(btn)
-
-    def darken_color(self, hex_color, factor=0.8):
-        """Darken a hex color"""
-        hex_color = hex_color.lstrip('#')
-        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-        r, g, b = int(r * factor), int(g * factor), int(b * factor)
-        return f'#{r:02x}{g:02x}{b:02x}'
-
-    def lighten_color(self, hex_color, factor=1.2):
-        """Lighten a hex color"""
-        hex_color = hex_color.lstrip('#')
-        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-        r, g, b = min(255, int(r * factor)), min(255, int(g * factor)), min(255, int(b * factor))
-        return f'#{r:02x}{g:02x}{b:02x}'
 
     def show(self, result: Dict[str, Any], x: int = None, y: int = None):
-        """
-        Show the action wheel with analysis results and smooth animation
-
-        Args:
-            result: Analysis result from ContextAnalyzer
-            x, y: Position to display (default: center of screen)
-        """
+        """Show the wheel with analysis results"""
         self.current_data = result
         self.matches = []
-        self.selected_index = 0
+        self.selected_match_index = 0
+        self.navigation_mode = 'wheel'
+        self.selected_action = None
+        self.detail_level = 0
 
-        # Add to history
-        if result not in self.history:
-            self.history.insert(0, result)
-            self.history = self.history[:10]  # Keep last 10
+        # Update selected text
+        selected_text = result.get('selected_text', '')
+        display_text = selected_text if len(selected_text) <= 80 else selected_text[:77] + "..."
+        self.selected_text_label.config(text=f'"{display_text}"')
 
-        # Build list of matches with confidence scores
+        # Build matches list
         if result.get('abbreviation'):
             self.matches.append({
                 'type': 'abbreviation',
                 'icon': '🟣',
                 'label': result['abbreviation']['abbr'],
-                'data': result['abbreviation'],
-                'confidence': 0.95
+                'data': result['abbreviation']
             })
 
-        # Exact matches
         for match in result.get('exact_matches', []):
             match_type = match['type']
             data = match['data']
-            confidence = match.get('confidence', 0.9)
 
             if match_type == 'contact':
-                icon = '👤'
-                label = data.get('name', 'Unknown')
-            elif match_type == 'snippet':
-                icon = '📝'
-                label = 'Snippet'
+                icon, label = '👤', data.get('name', 'Unknown')
             elif match_type == 'project':
-                icon = '📁'
-                label = data.get('name', 'Project')
+                icon, label = '📁', data.get('name', 'Project')
+            elif match_type == 'snippet':
+                icon, label = '📝', 'Snippet'
             else:
-                icon = '📄'
-                label = match_type
+                icon, label = '📄', match_type
 
             self.matches.append({
                 'type': match_type,
                 'icon': icon,
                 'label': label,
-                'data': data,
-                'confidence': confidence
+                'data': data
             })
 
-        # Render detected items ring
-        self.render_items_ring()
+        # Initial render
+        self.render_wheel()
 
         # Position window
         if x is None or y is None:
             screen_width = self.root.winfo_screenwidth()
             screen_height = self.root.winfo_screenheight()
-            x = (screen_width - self.hub_size) // 2
-            y = (screen_height - self.hub_size) // 2
+            x = (screen_width - self.wheel_size) // 2
+            y = (screen_height - self.wheel_size) // 2
 
-        # Adjust if would go off-screen
-        if x + self.hub_size > self.root.winfo_screenwidth():
-            x = self.root.winfo_screenwidth() - self.hub_size - 20
-        if y + self.hub_size > self.root.winfo_screenheight():
-            y = self.root.winfo_screenheight() - self.hub_size - 20
-        if x < 20:
-            x = 20
-        if y < 20:
-            y = 20
-
-        self.root.geometry(f'{self.hub_size}x{self.hub_size}+{x}+{y}')
-
-        # Animate appearance
-        self.root.attributes('-alpha', 0.0)
+        self.root.geometry(f'{self.wheel_size}x{self.wheel_size}+{x}+{y}')
         self.root.deiconify()
         self.root.focus_force()
-        self.animate_fade_in()
 
-    def animate_fade_in(self, alpha=0.0):
-        """Smooth fade-in animation"""
-        if alpha < 0.95:
-            alpha += 0.15
-            self.root.attributes('-alpha', alpha)
-            self.root.after(20, lambda: self.animate_fade_in(alpha))
+    def render_wheel(self):
+        """Render the wheel based on current navigation state"""
+        center = self.wheel_size // 2
 
-    def render_items_ring(self):
-        """Render detected items as enhanced segments around outer ring"""
-        # Clear existing
-        for widget in self.item_widgets:
-            self.canvas.delete(widget)
-        self.item_widgets.clear()
+        # Clear previous action slice visuals
+        self.canvas.delete('action_slice')
+        self.canvas.delete('match_item')
 
-        if not self.matches:
-            # No matches message
-            msg_id = self.canvas.create_text(
-                self.hub_size // 2,
-                self.hub_size - 30,
-                text="No matches found",
-                font=self.item_font,
-                fill=self.color_scheme['text_secondary']
-            )
-            self.item_widgets.append(msg_id)
-            return
+        # Hide detail and match list initially
+        self.canvas.itemconfig(self.detail_frame, state='hidden')
+        self.canvas.itemconfig(self.match_list_frame, state='hidden')
 
-        center = self.hub_size // 2
-        count = min(len(self.matches), 8)  # Max 8 items
+        if self.navigation_mode == 'wheel':
+            # Show action slices around the hub
+            self.render_action_slices(center)
 
-        for i in range(count):
-            match = self.matches[i]
-            angle = (360 / count) * i
+        elif self.navigation_mode == 'matches':
+            # Show matches list on left
+            self.render_matches_list(center)
+
+            # If detail level > 0, show expanded details on right
+            if self.detail_level > 0:
+                self.render_match_details(center)
+
+    def render_action_slices(self, center):
+        """Render the 4 action slices around the hub"""
+        distance = 120
+
+        for action_key, action_info in self.action_slices.items():
+            angle = action_info['angle']
             rad = math.radians(angle)
 
-            # Position
-            x = center + self.item_ring_radius * math.sin(rad)
-            y = center - self.item_ring_radius * math.cos(rad)
-
-            # Get type color
-            type_color = self.color_scheme.get(match['type'], self.color_scheme['text_primary'])
+            x = center + distance * math.sin(rad)
+            y = center + 80 + distance * -math.cos(rad)
 
             # Highlight if selected
-            is_selected = (i == self.selected_index)
-            bg = type_color if is_selected else self.color_scheme['bg_light']
-            text_color = 'white' if is_selected else self.color_scheme['text_primary']
-            border_color = type_color
+            is_selected = (self.selected_action == action_key)
+            color = action_info['color']
+            bg_color = color if is_selected else self.colors['bg']
+            text_color = 'white' if is_selected else self.colors['text']
+            border_color = color
 
-            # Create item label with confidence indicator
-            confidence = match.get('confidence', 0)
-            confidence_bar = '█' * int(confidence * 5)
-            item_text = f"{match['icon']}\n{self.truncate(match['label'], 10)}"
+            # Create slice label
+            slice_text = f"{action_info['icon']}\n{action_info['label']}"
 
-            # Add to favorites indicator
-            if self.is_favorite(match):
-                item_text = f"⭐{match['icon']}\n{self.truncate(match['label'], 10)}"
+            # Background circle for slice
+            circle_radius = 40
+            circle_id = self.canvas.create_oval(
+                x - circle_radius,
+                y - circle_radius,
+                x + circle_radius,
+                y + circle_radius,
+                fill=bg_color,
+                outline=border_color,
+                width=3 if is_selected else 2,
+                tags='action_slice'
+            )
 
-            label_id = self.canvas.create_text(
+            # Label
+            text_id = self.canvas.create_text(
                 x, y,
-                text=item_text,
-                font=self.item_font,
+                text=slice_text,
+                font=self.action_font if is_selected else self.normal_font,
                 fill=text_color,
-                justify=tk.CENTER
+                justify=tk.CENTER,
+                tags='action_slice'
             )
 
-            # Create background circle with shadow effect
-            bbox = self.canvas.bbox(label_id)
-            if bbox:
-                padding = 10
-
-                # Shadow
-                shadow_id = self.canvas.create_oval(
-                    bbox[0] - padding + 2,
-                    bbox[1] - padding + 2,
-                    bbox[2] + padding + 2,
-                    bbox[3] + padding + 2,
-                    fill='#333333',
-                    outline=''
+            # Show match count for matches slice
+            if action_key == 'matches':
+                count_text = f"({len(self.matches)})"
+                self.canvas.create_text(
+                    x, y + 30,
+                    text=count_text,
+                    font=self.small_font,
+                    fill=border_color,
+                    tags='action_slice'
                 )
 
-                # Main circle
-                circle_id = self.canvas.create_oval(
-                    bbox[0] - padding,
-                    bbox[1] - padding,
-                    bbox[2] + padding,
-                    bbox[3] + padding,
-                    fill=bg,
-                    outline=border_color,
-                    width=2
-                )
+    def render_matches_list(self, center):
+        """Render the list of matches on the left side"""
+        # Clear previous match list
+        for widget in self.match_list_frame.winfo_children():
+            widget.destroy()
 
-                # Lower behind text
-                self.canvas.tag_lower(shadow_id, label_id)
-                self.canvas.tag_lower(circle_id, label_id)
-                self.item_widgets.append(shadow_id)
-                self.item_widgets.append(circle_id)
-
-            self.item_widgets.append(label_id)
-
-            # Bind click and hover
-            self.canvas.tag_bind(label_id, '<Button-1>', lambda e, idx=i: self.select_item(idx))
-            self.canvas.tag_bind(label_id, '<Button-3>', lambda e, idx=i: self.show_item_context_menu(e, idx))
-            self.canvas.tag_bind(label_id, '<Enter>', lambda e, idx=i: self.on_item_hover(idx))
-
-    def is_favorite(self, match: Dict) -> bool:
-        """Check if item is in favorites"""
-        for fav in self.favorites:
-            if fav.get('label') == match.get('label') and fav.get('type') == match.get('type'):
-                return True
-        return False
-
-    def on_item_hover(self, index: int):
-        """Show quick preview on hover"""
-        if 0 <= index < len(self.matches):
-            match = self.matches[index]
-            # Could show a tooltip here in future enhancement
-            pass
-
-    def truncate(self, text: str, max_len: int = 12) -> str:
-        """Truncate text to max length"""
-        if len(text) <= max_len:
-            return text
-        return text[:max_len-2] + ".."
-
-    def select_item(self, index: int):
-        """Select an item from the ring"""
-        if 0 <= index < len(self.matches):
-            self.selected_index = index
-            self.render_items_ring()
-
-    def navigate(self, direction: int):
-        """Navigate items with arrow keys"""
-        if not self.matches:
-            return
-
-        self.selected_index = (self.selected_index + direction) % len(self.matches)
-        self.render_items_ring()
-
-    def expand_details(self):
-        """Expand to show details of selected item"""
-        if not self.matches or self.selected_index >= len(self.matches):
-            return
-
-        match = self.matches[self.selected_index]
-        self.show_details_popup(match)
-
-    def show_details_popup(self, match: Dict):
-        """Show enhanced details popup for selected match"""
-        popup = tk.Toplevel(self.root)
-        popup.title("Details")
-        popup.geometry("450x350")
-        popup.transient(self.root)
-        popup.attributes('-topmost', True)
-
-        # Position near wheel
-        wheel_x = self.root.winfo_x()
-        wheel_y = self.root.winfo_y()
-        popup.geometry(f"+{wheel_x + self.hub_size + 10}+{wheel_y}")
-
-        # Header with gradient effect (simulated)
-        header = tk.Frame(popup, bg=self.color_scheme['primary'], height=70)
-        header.pack(fill=tk.X)
-        header.pack_propagate(False)
-
-        # Title with type badge
-        title_frame = tk.Frame(header, bg=self.color_scheme['primary'])
-        title_frame.pack(fill=tk.X, padx=20, pady=15)
-
-        tk.Label(
-            title_frame,
-            text=f"{match['icon']} {match['label']}",
-            font=tkfont.Font(family="Helvetica", size=16, weight="bold"),
-            bg=self.color_scheme['primary'],
-            fg="white"
-        ).pack(side=tk.LEFT)
-
-        # Type badge
-        type_color = self.color_scheme.get(match['type'], self.color_scheme['text_primary'])
-        type_badge = tk.Label(
-            title_frame,
-            text=match['type'].upper(),
-            font=tkfont.Font(family="Helvetica", size=9),
-            bg=type_color,
-            fg="white",
-            padx=8,
-            pady=4
-        )
-        type_badge.pack(side=tk.RIGHT)
-
-        # Content frame
-        content = tk.Frame(popup, bg="white", padx=20, pady=20)
-        content.pack(fill=tk.BOTH, expand=True)
-
-        # Confidence row
-        conf_frame = tk.Frame(content, bg='white')
-        conf_frame.pack(fill=tk.X, pady=(0, 10))
-
-        tk.Label(
-            conf_frame,
-            text=f"Confidence: {int(match.get('confidence', 0) * 100)}%",
-            font=self.item_font,
+        # Title
+        title_label = tk.Label(
+            self.match_list_frame,
+            text=f"📑 Matches ({len(self.matches)})",
+            font=self.title_font,
             bg='white',
-            fg=self.color_scheme['text_secondary']
-        ).pack(side=tk.LEFT)
-
-        # Progress bar
-        conf_bar = tk.Canvas(conf_frame, height=8, bg='#e0e0e0', highlightthickness=0)
-        conf_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
-        bar_width = int(300 * match.get('confidence', 0))
-        conf_bar.create_rectangle(0, 0, bar_width, 8, fill=self.color_scheme['project'], outline='')
-
-        # Details text
-        data = match['data']
-        detail_text = tk.Text(
-            content,
-            wrap=tk.WORD,
-            font=tkfont.Font(family="Helvetica", size=10),
-            bg="#f8f9fa",
-            relief=tk.FLAT,
-            padx=15,
-            pady=15
+            fg=self.colors['primary'],
+            pady=10
         )
-        detail_text.pack(fill=tk.BOTH, expand=True)
+        title_label.pack()
 
-        details = self.format_details(match['type'], data)
-        detail_text.insert('1.0', details)
-        detail_text.config(state=tk.DISABLED)
-
-        # Action buttons
-        actions_frame = tk.Frame(content, bg='white')
-        actions_frame.pack(pady=(10, 0))
-
-        # Copy JSON button
-        tk.Button(
-            actions_frame,
-            text="📋 Copy JSON",
-            command=lambda: self.copy_as_json(data),
-            bg=self.color_scheme['contact'],
-            fg="white",
-            relief=tk.FLAT,
-            padx=15,
-            pady=8,
-            cursor="hand2"
-        ).pack(side=tk.LEFT, padx=5)
-
-        # Close button
-        tk.Button(
-            actions_frame,
-            text="Close",
-            command=popup.destroy,
-            bg=self.color_scheme['primary'],
-            fg="white",
-            relief=tk.FLAT,
-            padx=20,
-            pady=8,
-            cursor="hand2"
-        ).pack(side=tk.LEFT, padx=5)
-
-        popup.bind('<Escape>', lambda e: popup.destroy())
-
-    def format_details(self, match_type: str, data: Dict) -> str:
-        """Format details text for display"""
-        lines = []
-
-        if match_type == 'contact':
-            if data.get('name'):
-                lines.append(f"👤 Name: {data['name']}")
-            if data.get('email'):
-                lines.append(f"✉️  Email: {data['email']}")
-            if data.get('role'):
-                lines.append(f"💼 Role: {data['role']}")
-            if data.get('last_contact'):
-                lines.append(f"📅 Last Contact: {data['last_contact']}")
-            if data.get('context'):
-                lines.append(f"\n📝 Context:\n{data['context']}")
-
-        elif match_type == 'abbreviation':
-            if data.get('full'):
-                lines.append(f"🔤 {data.get('abbr', '')} = {data['full']}")
-            if data.get('definition'):
-                lines.append(f"\n📖 Definition:\n{data['definition']}")
-            if data.get('category'):
-                lines.append(f"\n🏷️  Category: {data['category']}")
-
-        elif match_type == 'project':
-            if data.get('name'):
-                lines.append(f"📁 Project: {data['name']}")
-            if data.get('status'):
-                lines.append(f"📊 Status: {data['status']}")
-            if data.get('description'):
-                lines.append(f"\n📝 Description:\n{data['description']}")
-
+        if not self.matches:
+            no_match_label = tk.Label(
+                self.match_list_frame,
+                text="No matches found",
+                font=self.normal_font,
+                bg='white',
+                fg=self.colors['text_light'],
+                pady=20
+            )
+            no_match_label.pack()
         else:
-            for key, value in data.items():
-                if key != 'id' and value:
-                    lines.append(f"{key.replace('_', ' ').title()}: {value}")
+            # Match items
+            for i, match in enumerate(self.matches):
+                is_selected = (i == self.selected_match_index)
 
-        return '\n\n'.join(lines) if lines else "No details available"
+                match_frame = tk.Frame(
+                    self.match_list_frame,
+                    bg=self.colors['primary'] if is_selected else 'white',
+                    relief=tk.FLAT,
+                    bd=0
+                )
+                match_frame.pack(fill=tk.X, padx=10, pady=5)
 
-    def show_item_context_menu(self, event, index: int):
-        """Show context menu for item"""
-        if not (0 <= index < len(self.matches)):
+                match_label = tk.Label(
+                    match_frame,
+                    text=f"{match['icon']} {match['label']}",
+                    font=self.action_font if is_selected else self.normal_font,
+                    bg=self.colors['primary'] if is_selected else 'white',
+                    fg='white' if is_selected else self.colors['text'],
+                    anchor=tk.W,
+                    padx=15,
+                    pady=12
+                )
+                match_label.pack(fill=tk.X)
+
+                # Type badge
+                type_label = tk.Label(
+                    match_frame,
+                    text=match['type'].upper(),
+                    font=self.small_font,
+                    bg=self.colors['primary'] if is_selected else 'white',
+                    fg='white' if is_selected else self.colors[match['type']],
+                    padx=5
+                )
+                type_label.pack(anchor=tk.W, padx=15, pady=(0, 8))
+
+        # Position on canvas (left side)
+        self.canvas.create_window(180, center + 80, window=self.match_list_frame)
+
+    def render_match_details(self, center):
+        """Render detailed view of selected match on the right"""
+        if not self.matches or self.selected_match_index >= len(self.matches):
             return
 
-        match = self.matches[index]
+        match = self.matches[self.selected_match_index]
 
-        menu = tk.Menu(self.root, tearoff=0)
-        menu.add_command(label="View Details", command=lambda: self.show_details_popup(match))
-        menu.add_command(label="⭐ Add to Favorites" if not self.is_favorite(match) else "Remove from Favorites",
-                        command=lambda: self.toggle_favorite(match))
-        menu.add_command(label="Copy as JSON", command=lambda: self.copy_as_json(match['data']))
-        menu.add_separator()
-        menu.add_command(label="Search Web", command=self.search_web)
+        # Clear and populate detail text
+        self.detail_text.config(state=tk.NORMAL)
+        self.detail_text.delete('1.0', tk.END)
 
-        menu.post(event.x_root, event.y_root)
+        # Title
+        self.detail_text.insert('end', f"{match['icon']} {match['label']}\n", 'title')
+        self.detail_text.tag_config('title', font=self.title_font, foreground=self.colors['primary'])
 
-    def toggle_favorite(self, match: Dict):
-        """Toggle favorite status"""
-        if self.is_favorite(match):
-            self.favorites = [f for f in self.favorites
-                            if not (f.get('label') == match.get('label') and f.get('type') == match.get('type'))]
-            self.show_toast("Removed from favorites")
-        else:
-            self.favorites.append(match)
-            self.show_toast("Added to favorites ⭐")
-        self.render_items_ring()
+        self.detail_text.insert('end', f"\nType: {match['type'].title()}\n\n", 'subtitle')
+        self.detail_text.tag_config('subtitle', font=self.small_font, foreground=self.colors['text_light'])
 
-    def toggle_history(self):
-        """Toggle history view"""
-        self.show_history = not self.show_history
-        if self.show_history:
-            self.show_history_panel()
-        else:
-            self.render_items_ring()
+        # Details based on type
+        data = match['data']
 
-    def show_history_panel(self):
-        """Show recent history in a panel"""
-        # Clear current items
-        for widget in self.item_widgets:
-            self.canvas.delete(widget)
-        self.item_widgets.clear()
+        if match['type'] == 'contact':
+            self.add_detail_field("Name", data.get('name', ''))
+            self.add_detail_field("Email", data.get('email', ''))
+            self.add_detail_field("Role", data.get('role', ''))
+            self.add_detail_field("Context", data.get('context', ''))
 
-        if not self.history:
-            msg = self.canvas.create_text(
-                self.hub_size // 2,
-                self.hub_size - 30,
-                text="No history yet",
-                font=self.item_font,
-                fill=self.color_scheme['text_secondary']
-            )
-            self.item_widgets.append(msg)
-            return
+        elif match['type'] == 'abbreviation':
+            self.add_detail_field("Abbreviation", data.get('abbr', ''))
+            self.add_detail_field("Full Form", data.get('full', ''))
+            self.add_detail_field("Definition", data.get('definition', ''))
 
-        # Show recent items
-        y_pos = 30
-        for i, item in enumerate(self.history[:5]):
-            text = item.get('selected_text', '')[:30]
-            label = self.canvas.create_text(
-                20,
-                y_pos,
-                text=f"{i+1}. {text}...",
-                font=self.item_font,
-                fill=self.color_scheme['text_primary'],
-                anchor=tk.W
-            )
-            self.item_widgets.append(label)
-            y_pos += 20
+        elif match['type'] == 'project':
+            self.add_detail_field("Name", data.get('name', ''))
+            self.add_detail_field("Status", data.get('status', ''))
+            self.add_detail_field("Description", data.get('description', ''))
+
+        elif match['type'] == 'snippet':
+            text = data.get('text', '')
+            lines = text.split('\n')
+            if len(lines) > 5:
+                preview = '\n'.join(lines[:5]) + f"\n... ({len(lines) - 5} more lines)"
+            else:
+                preview = text
+            self.add_detail_field("Text", preview)
+
+        self.detail_text.config(state=tk.DISABLED)
+
+        # Position on canvas (right side)
+        self.canvas.create_window(self.wheel_size - 200, center + 80, window=self.detail_frame)
+
+    def add_detail_field(self, label, value):
+        """Add a field to detail text"""
+        if value:
+            self.detail_text.insert('end', f"{label}:\n", 'field_label')
+            self.detail_text.tag_config('field_label', font=self.small_font, foreground=self.colors['text_light'])
+
+            self.detail_text.insert('end', f"{value}\n\n", 'field_value')
+            self.detail_text.tag_config('field_value', font=self.normal_font, foreground=self.colors['text'])
+
+    def navigate_left(self):
+        """Navigate left in the wheel"""
+        if self.navigation_mode == 'wheel':
+            # Cycle through action slices counterclockwise
+            actions = list(self.action_slices.keys())
+            if self.selected_action is None:
+                self.selected_action = actions[0]
+            else:
+                idx = actions.index(self.selected_action)
+                self.selected_action = actions[(idx - 1) % len(actions)]
+            self.render_wheel()
+
+        elif self.navigation_mode == 'matches' and self.detail_level > 0:
+            # Collapse details
+            self.detail_level = 0
+            self.render_wheel()
+
+    def navigate_right(self):
+        """Navigate right in the wheel"""
+        if self.navigation_mode == 'wheel':
+            # Cycle through action slices clockwise
+            actions = list(self.action_slices.keys())
+            if self.selected_action is None:
+                self.selected_action = actions[0]
+            else:
+                idx = actions.index(self.selected_action)
+                self.selected_action = actions[(idx + 1) % len(actions)]
+            self.render_wheel()
+
+        elif self.navigation_mode == 'matches':
+            # Expand details
+            if self.matches:
+                self.detail_level = 1
+                self.render_wheel()
+
+    def navigate_up(self):
+        """Navigate up"""
+        if self.navigation_mode == 'matches' and self.matches:
+            # Previous match
+            self.selected_match_index = (self.selected_match_index - 1) % len(self.matches)
+            self.render_wheel()
+
+    def navigate_down(self):
+        """Navigate down"""
+        if self.navigation_mode == 'matches' and self.matches:
+            # Next match
+            self.selected_match_index = (self.selected_match_index + 1) % len(self.matches)
+            self.render_wheel()
+
+    def select_action(self):
+        """Select/activate current action"""
+        if self.navigation_mode == 'wheel' and self.selected_action:
+            if self.selected_action == 'matches':
+                # Enter matches navigation mode
+                self.navigation_mode = 'matches'
+                self.detail_level = 0
+                self.selected_match_index = 0
+                self.render_wheel()
+            elif self.selected_action == 'save':
+                self.save_snippet()
+            elif self.selected_action == 'search':
+                self.search_web()
+            elif self.selected_action == 'actions':
+                self.show_actions_menu()
+
+    def go_back(self):
+        """Go back to wheel from matches"""
+        if self.navigation_mode == 'matches':
+            if self.detail_level > 0:
+                # Collapse details first
+                self.detail_level = 0
+                self.render_wheel()
+            else:
+                # Back to wheel
+                self.navigation_mode = 'wheel'
+                self.selected_action = 'matches'
+                self.render_wheel()
+
+    def save_snippet(self):
+        """Save current selection"""
+        if self.current_data and self.on_save_snippet:
+            text = self.current_data.get('selected_text', '')
+            if text:
+                if hasattr(self.on_save_snippet, 'save'):
+                    self.on_save_snippet.save(text, 'snippet')
+                else:
+                    self.on_save_snippet(text)
+                self.show_message("Saved!")
+
+    def search_web(self):
+        """Search selected text on web"""
+        if self.current_data:
+            query = self.current_data.get('selected_text', '')
+            if query:
+                webbrowser.open(f"https://www.google.com/search?q={query.replace(' ', '+')}")
+
+    def show_actions_menu(self):
+        """Show additional actions"""
+        # Could expand to show copy, export, etc.
+        if self.current_data:
+            text = self.current_data.get('selected_text', '')
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+            self.show_message("Copied!")
+
+    def show_message(self, text):
+        """Show temporary message"""
+        msg = self.canvas.create_text(
+            self.wheel_size // 2,
+            self.wheel_size - 60,
+            text=text,
+            font=self.action_font,
+            fill=self.colors['accent'],
+            tags='message'
+        )
+        self.root.after(2000, lambda: self.canvas.delete('message'))
+
+    def bind_keys(self):
+        """Bind keyboard shortcuts"""
+        self.root.bind('<Left>', lambda e: self.navigate_left())
+        self.root.bind('<Right>', lambda e: self.navigate_right())
+        self.root.bind('<Up>', lambda e: self.navigate_up())
+        self.root.bind('<Down>', lambda e: self.navigate_down())
+        self.root.bind('<Return>', lambda e: self.select_action())
+        self.root.bind('<space>', lambda e: self.select_action())
+        self.root.bind('<BackSpace>', lambda e: self.go_back())
+        self.root.bind('<Escape>', lambda e: self.hide())
+        self.root.bind('<F1>', lambda e: self.show_info())
+
+    def hide(self):
+        """Hide the wheel"""
+        self.root.withdraw()
 
     def show_info(self):
         """Show information about this prototype"""
@@ -708,51 +607,62 @@ class ActionWheelWidget:
 🎯 Action Wheel - Prototype 1
 
 CONCEPT:
-A radial menu that appears near your cursor, showing matches
-in a circular layout with quick actions at cardinal points.
+Hierarchical radial navigation for context matches.
+Navigate through information like a tree using directional keys.
 
 HOW TO USE:
-• Wheel appears automatically when you copy text
-• Click center hub to toggle history view
-• Click items in the outer ring to select them
-• Right-click items for context menu
-• Use action buttons (Save, Search, Copy, Pin)
+1. Wheel appears showing 4 main slices
+2. Use ←→ to select a slice (Matches/Save/Search/Actions)
+3. Press ENTER/SPACE to activate selected slice
+4. In Matches mode:
+   • ↑↓ Navigate through matches
+   • → Expand to show full details on right
+   • ← Collapse details or go back to wheel
+5. BACKSPACE to go back one level
 
 KEYBOARD SHORTCUTS:
-• ↑↓←→ - Navigate through matches
-• Enter/Space - Show full details
-• S - Save snippet
-• W - Web search
-• C - Copy to clipboard
-• P - Pin/unpin current item
-• H - Toggle history view
+• ←→ - Navigate wheel slices (or collapse details)
+• ↑↓ - Navigate through matches list
+• → - Expand to show full details
+• ENTER/SPACE - Select/activate
+• BACKSPACE - Go back
 • ESC - Close wheel
+• F1 - Show this help
+
+NAVIGATION LEVELS:
+1. Wheel Mode: Select main action (Matches/Save/Search/Actions)
+2. Matches Mode: Browse through all matches
+3. Detail Mode: View full information about selected match
 
 SPECIAL FEATURES:
-• Favorites/pinning system with star indicators
-• History tracking (last 10 analyses)
-• Smooth fade animations
-• Type-specific color coding
-• Confidence scores on details
-• Copy as JSON option
+• Selected text displayed at top
+• Match count shown on Matches slice
+• Hierarchical navigation (tree-like)
+• Full keyboard control
+• Detail expansion on demand
+
+BEST FOR:
+• Users who like radial/circular navigation
+• Keyboard-driven workflows
+• Organized hierarchical information browsing
+• Quick action access combined with deep diving
         """
 
         info_window = tk.Toplevel(self.root)
-        info_window.title("About This Prototype")
-        info_window.geometry("500x550")
+        info_window.title("About Action Wheel")
+        info_window.geometry("600x800")
         info_window.transient(self.root)
         info_window.attributes('-topmost', True)
 
-        # Position near wheel
-        wheel_x = self.root.winfo_x()
-        wheel_y = self.root.winfo_y()
-        info_window.geometry(f"+{wheel_x + self.hub_size + 10}+{wheel_y}")
+        # Center on screen
+        x = (info_window.winfo_screenwidth() - 600) // 2
+        y = (info_window.winfo_screenheight() - 800) // 2
+        info_window.geometry(f"+{x}+{y}")
 
-        # Content
         text_widget = tk.Text(
             info_window,
             wrap=tk.WORD,
-            font=self.item_font,
+            font=self.normal_font,
             padx=20,
             pady=20,
             bg='#f8f9fa',
@@ -762,134 +672,27 @@ SPECIAL FEATURES:
         text_widget.insert('1.0', info_text)
         text_widget.config(state=tk.DISABLED)
 
-        # Close button
         tk.Button(
             info_window,
             text="Got it!",
             command=info_window.destroy,
-            bg=self.color_scheme['primary'],
+            bg=self.colors['primary'],
             fg='white',
             relief=tk.FLAT,
             padx=20,
             pady=10,
+            font=self.action_font,
             cursor='hand2'
         ).pack(pady=15)
 
         info_window.bind('<Escape>', lambda e: info_window.destroy())
-
-    def bind_keys(self):
-        """Bind keyboard shortcuts"""
-        self.root.bind('<Up>', lambda e: self.navigate(-1))
-        self.root.bind('<Down>', lambda e: self.navigate(1))
-        self.root.bind('<Left>', lambda e: self.navigate(-1))
-        self.root.bind('<Right>', lambda e: self.navigate(1))
-        self.root.bind('<Return>', lambda e: self.expand_details())
-        self.root.bind('<space>', lambda e: self.expand_details())
-        self.root.bind('<Escape>', lambda e: self.hide())
-        self.root.bind('s', lambda e: self.save_snippet())
-        self.root.bind('w', lambda e: self.search_web())
-        self.root.bind('c', lambda e: self.copy_to_clipboard())
-        self.root.bind('p', lambda e: self.pin_item())
-        self.root.bind('h', lambda e: self.toggle_history())
-        self.root.bind('<F1>', lambda e: self.show_info())
-
-    def save_snippet(self):
-        """Save current text as snippet"""
-        if self.current_data and self.on_save_snippet:
-            text = self.current_data.get('selected_text', '')
-            if text:
-                if hasattr(self.on_save_snippet, 'save'):
-                    self.on_save_snippet.save(text, 'snippet')
-                    self.show_toast("💾 Snippet saved!")
-                else:
-                    self.on_save_snippet(text)
-                    self.show_toast("💾 Snippet saved!")
-
-    def search_web(self):
-        """Search selected text on web"""
-        if self.current_data:
-            query = self.current_data.get('selected_text', '')
-            if query:
-                url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
-                webbrowser.open(url)
-                self.show_toast("🔍 Opened web search")
-
-    def copy_to_clipboard(self):
-        """Copy to clipboard"""
-        if self.current_data:
-            text = self.current_data.get('selected_text', '')
-            if text:
-                self.root.clipboard_clear()
-                self.root.clipboard_append(text)
-                self.show_toast("📋 Copied to clipboard!")
-
-    def copy_as_json(self, data: Dict):
-        """Copy data as JSON"""
-        json_str = json.dumps(data, indent=2)
-        self.root.clipboard_clear()
-        self.root.clipboard_append(json_str)
-        self.show_toast("📋 Copied as JSON!")
-
-    def pin_item(self):
-        """Pin selected item to favorites"""
-        if self.matches and 0 <= self.selected_index < len(self.matches):
-            match = self.matches[self.selected_index]
-            self.toggle_favorite(match)
-
-    def show_toast(self, message: str, duration: int = 2000):
-        """Show enhanced toast message with modern styling"""
-        toast_frame = tk.Frame(
-            self.canvas,
-            bg=self.color_scheme['project'],
-            relief=tk.FLAT,
-            bd=0
-        )
-
-        toast_label = tk.Label(
-            toast_frame,
-            text=message,
-            font=self.item_font,
-            bg=self.color_scheme['project'],
-            fg="white",
-            padx=15,
-            pady=8
-        )
-        toast_label.pack()
-
-        center = self.hub_size // 2
-        toast_id = self.canvas.create_window(center, center + 60, window=toast_frame)
-
-        # Fade out and remove
-        def fade_out(alpha=1.0):
-            if alpha > 0:
-                alpha -= 0.1
-                # Tkinter doesn't support per-widget alpha, so just wait and delete
-                self.root.after(int(duration * alpha / 10), lambda: fade_out(alpha))
-            else:
-                self.canvas.delete(toast_id)
-
-        self.root.after(duration, lambda: self.canvas.delete(toast_id))
-
-    def hide(self):
-        """Hide the action wheel with fade animation"""
-        self.animate_fade_out()
-
-    def animate_fade_out(self, alpha=0.95):
-        """Smooth fade-out animation"""
-        if alpha > 0:
-            alpha -= 0.15
-            self.root.attributes('-alpha', alpha)
-            self.root.after(20, lambda: self.animate_fade_out(alpha))
-        else:
-            self.root.withdraw()
-            self.root.attributes('-alpha', 0.95)  # Reset for next show
 
     def run(self):
         """Run the main loop"""
         self.root.mainloop()
 
     def update(self):
-        """Update GUI (for integration with event loop)"""
+        """Update GUI"""
         try:
             self.root.update()
         except tk.TclError:
