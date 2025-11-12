@@ -164,10 +164,12 @@ class ActionWheelWidget:
             relief=tk.FLAT
         )
         self.detail_text.pack()
-        # Initially hidden
+        # Create window and store ID for later show/hide
+        self.detail_window_id = None
 
         # Match list area (left side) - for showing matches
         self.match_list_frame = tk.Frame(self.canvas, bg='white', relief=tk.SOLID, bd=1)
+        self.match_list_window_id = None
         # Will be populated dynamically
 
         # Info and close buttons
@@ -271,9 +273,14 @@ class ActionWheelWidget:
         self.canvas.delete('action_slice')
         self.canvas.delete('match_item')
 
-        # Hide detail and match list initially
-        self.canvas.itemconfig(self.detail_frame, state='hidden')
-        self.canvas.itemconfig(self.match_list_frame, state='hidden')
+        # Remove existing canvas windows if they exist
+        if self.detail_window_id:
+            self.canvas.delete(self.detail_window_id)
+            self.detail_window_id = None
+
+        if self.match_list_window_id:
+            self.canvas.delete(self.match_list_window_id)
+            self.match_list_window_id = None
 
         if self.navigation_mode == 'wheel':
             # Show action slices around the hub
@@ -405,8 +412,8 @@ class ActionWheelWidget:
                 )
                 type_label.pack(anchor=tk.W, padx=15, pady=(0, 8))
 
-        # Position on canvas (left side)
-        self.canvas.create_window(180, center + 80, window=self.match_list_frame)
+        # Create canvas window and store ID
+        self.match_list_window_id = self.canvas.create_window(180, center + 80, window=self.match_list_frame)
 
     def render_match_details(self, center):
         """Render detailed view of selected match on the right"""
@@ -456,8 +463,8 @@ class ActionWheelWidget:
 
         self.detail_text.config(state=tk.DISABLED)
 
-        # Position on canvas (right side)
-        self.canvas.create_window(self.wheel_size - 200, center + 80, window=self.detail_frame)
+        # Create canvas window and store ID
+        self.detail_window_id = self.canvas.create_window(self.wheel_size - 200, center + 80, window=self.detail_frame)
 
     def add_detail_field(self, label, value):
         """Add a field to detail text"""
