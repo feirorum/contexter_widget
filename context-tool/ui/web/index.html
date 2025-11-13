@@ -709,6 +709,54 @@
                 box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
             }
         }
+
+        /* Context navigation buttons */
+        .context-nav-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .nav-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            border: none;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.5);
+            transform: scale(1.1);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Use as context button in analyzer */
+        .use-context-btn {
+            padding: 6px 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 8px;
+            transition: background 0.2s;
+        }
+
+        .use-context-btn:hover {
+            background: #5568d3;
+        }
     </style>
 </head>
 <body>
@@ -800,7 +848,13 @@
         <!-- Third Panel: Favourites -->
         <div id="favouritesPane">
             <div class="favourites-header">
-                <h1>⭐ Favourites</h1>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h1 style="margin: 0;">⭐ Favourites</h1>
+                    <div class="context-nav-buttons">
+                        <button id="contextBackBtn" class="nav-btn" title="Previous context" disabled>◀</button>
+                        <button id="contextForwardBtn" class="nav-btn" title="Next context" disabled>▶</button>
+                    </div>
+                </div>
             </div>
             <div class="favourites-content">
                 <!-- Project Selector -->

@@ -37,9 +37,6 @@ function connectWebSocket() {
             clearInterval(reconnectInterval);
             reconnectInterval = null;
         }
-
-        // Show system mode indicator if enabled
-        showSystemModeIndicator();
     };
 
     ws.onmessage = (event) => {
@@ -60,7 +57,6 @@ function connectWebSocket() {
 
     ws.onclose = () => {
         console.log('WebSocket disconnected. Reconnecting...');
-        hideSystemModeIndicator();
 
         // Attempt to reconnect after 3 seconds
         if (!reconnectInterval) {
@@ -69,39 +65,6 @@ function connectWebSocket() {
             }, 3000);
         }
     };
-}
-
-// Show indicator that system mode is active
-function showSystemModeIndicator() {
-    // Check if we're receiving system broadcasts
-    const indicator = document.createElement('div');
-    indicator.id = 'system-mode-indicator';
-    indicator.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-size: 14px;
-        z-index: 1000;
-        animation: slideIn 0.3s ease-out;
-    `;
-    indicator.innerHTML = '🔍 System Mode Active - Copy text anywhere!';
-
-    // Only show if not already present
-    if (!document.getElementById('system-mode-indicator')) {
-        document.body.appendChild(indicator);
-    }
-}
-
-function hideSystemModeIndicator() {
-    const indicator = document.getElementById('system-mode-indicator');
-    if (indicator) {
-        indicator.remove();
-    }
 }
 
 // Load database statistics
@@ -533,10 +496,18 @@ function renderMatch(match, index) {
         needsExpansion = descLines.length > 3;
 
         const preview = truncateLines(descText, 3);
+        const projectName = data.name || 'Unknown';
 
         content = `
             <div class="match-item" style="border-left: 4px solid #fd7e14; padding-left: 12px;">
-                <div><strong>📁 ${data.name || 'Unknown'}</strong></div>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <strong>📁 ${projectName}</strong>
+                    </div>
+                    <button class="use-context-btn" onclick="useAsContext('${escapeHtml(projectName)}')">
+                        ⭐ Use as Context
+                    </button>
+                </div>
                 ${data.status ? `<div style="margin-top: 4px;">Status: <span style="background: #fd7e14; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">${data.status}</span></div>` : ''}
                 ${descText ? `
                     <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
@@ -986,6 +957,13 @@ let favouritesState = {
     searchQuery: ''
 };
 
+// Context history management
+let contextHistory = {
+    items: [], // Array of project names
+    currentIndex: -1, // Current position in history
+    maxSize: 10 // Maximum history size
+};
+
 // Initialize favourites pane
 document.addEventListener('DOMContentLoaded', async () => {
     // Load saved state from localStorage
@@ -1016,6 +994,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         projectSelect.value = favouritesState.selectedProject;
         await loadProjectFavourites(favouritesState.selectedProject);
     }
+
+    // Set up context navigation buttons
+    setupContextNavigation();
 
     // Start context detection polling
     await startContextDetection();
@@ -1109,6 +1090,11 @@ async function handleProjectChange(event) {
     const projectName = event.target.value;
     favouritesState.selectedProject = projectName;
     saveFavouritesState();
+
+    // Add to context history
+    if (projectName) {
+        addToContextHistory(projectName, false);
+    }
 
     if (projectName) {
         await loadProjectFavourites(projectName);
@@ -1455,6 +1441,9 @@ async function autoSelectProject(projectName) {
         favouritesState.selectedProject = projectName;
         saveFavouritesState();
 
+        // Add to context history (auto-detected)
+        addToContextHistory(projectName, false);
+
         // Load favourites
         await loadProjectFavourites(projectName);
 
@@ -1487,3 +1476,133 @@ async function stopContextDetection() {
 window.addEventListener('beforeunload', () => {
     stopContextDetection();
 });
+
+// ============================================================================
+// CONTEXT HISTORY & NAVIGATION
+// ============================================================================
+
+// Add project to context history
+function addToContextHistory(projectName, isNavigating = false) {
+    if (!projectName) return;
+
+    // Skip if we're navigating through history
+    if (isNavigating) return;
+
+    // If we're not at the end of history, truncate forward items
+    if (contextHistory.currentIndex < contextHistory.items.length - 1) {
+        contextHistory.items = contextHistory.items.slice(0, contextHistory.currentIndex + 1);
+    }
+
+    // Add new item (avoid duplicates of the last item)
+    if (contextHistory.items[contextHistory.items.length - 1] !== projectName) {
+        contextHistory.items.push(projectName);
+
+        // Keep only last 10 items
+        if (contextHistory.items.length > contextHistory.maxSize) {
+            contextHistory.items.shift();
+        }
+
+        contextHistory.currentIndex = contextHistory.items.length - 1;
+    }
+
+    updateNavigationButtons();
+}
+
+// Navigate back in history
+function navigateBack() {
+    if (contextHistory.currentIndex > 0) {
+        contextHistory.currentIndex--;
+        const projectName = contextHistory.items[contextHistory.currentIndex];
+        selectProjectFromHistory(projectName);
+        updateNavigationButtons();
+    }
+}
+
+// Navigate forward in history
+function navigateForward() {
+    if (contextHistory.currentIndex < contextHistory.items.length - 1) {
+        contextHistory.currentIndex++;
+        const projectName = contextHistory.items[contextHistory.currentIndex];
+        selectProjectFromHistory(projectName);
+        updateNavigationButtons();
+    }
+}
+
+// Select project from history (without adding to history again)
+async function selectProjectFromHistory(projectName) {
+    const projectSelect = document.getElementById('projectSelect');
+
+    // Auto-open favourites pane if not already open
+    if (!favouritesState.isOpen) {
+        toggleFavouritesPane();
+    }
+
+    // Select the project
+    projectSelect.value = projectName;
+    favouritesState.selectedProject = projectName;
+    saveFavouritesState();
+
+    // Load favourites
+    await loadProjectFavourites(projectName);
+}
+
+// Update navigation button states
+function updateNavigationButtons() {
+    const backBtn = document.getElementById('contextBackBtn');
+    const forwardBtn = document.getElementById('contextForwardBtn');
+
+    if (backBtn) {
+        backBtn.disabled = contextHistory.currentIndex <= 0;
+    }
+
+    if (forwardBtn) {
+        forwardBtn.disabled = contextHistory.currentIndex >= contextHistory.items.length - 1;
+    }
+}
+
+// Setup navigation button event listeners
+function setupContextNavigation() {
+    const backBtn = document.getElementById('contextBackBtn');
+    const forwardBtn = document.getElementById('contextForwardBtn');
+
+    if (backBtn) {
+        backBtn.addEventListener('click', navigateBack);
+    }
+
+    if (forwardBtn) {
+        forwardBtn.addEventListener('click', navigateForward);
+    }
+
+    // Initialize button states
+    updateNavigationButtons();
+}
+
+// Use project as context (from analyzer pane)
+async function useAsContext(projectName) {
+    // Auto-open favourites pane if not already open
+    if (!favouritesState.isOpen) {
+        toggleFavouritesPane();
+    }
+
+    // Select the project
+    const projectSelect = document.getElementById('projectSelect');
+    projectSelect.value = projectName;
+
+    // Add to history
+    addToContextHistory(projectName, false);
+
+    // Update state
+    favouritesState.selectedProject = projectName;
+    saveFavouritesState();
+
+    // Load favourites
+    await loadProjectFavourites(projectName);
+
+    // Visual feedback
+    projectSelect.style.animation = 'pulse 0.5s ease-in-out';
+    setTimeout(() => {
+        projectSelect.style.animation = '';
+    }, 500);
+
+    console.log(`📌 Manually selected context: ${projectName}`);
+}
