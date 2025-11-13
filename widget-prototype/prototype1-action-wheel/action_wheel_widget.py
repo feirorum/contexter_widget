@@ -11,6 +11,8 @@ import math
 import webbrowser
 import json
 from datetime import datetime
+import signal
+import sys
 
 
 class ActionWheelWidget:
@@ -60,6 +62,9 @@ class ActionWheelWidget:
 
         # Bind keys
         self.bind_keys()
+
+        # Setup signal handlers for clean Ctrl-C exit
+        self.setup_signal_handlers()
 
     def build_wheel(self):
         """Build the hierarchical navigation wheel"""
@@ -704,3 +709,21 @@ BEST FOR:
             self.root.update()
         except tk.TclError:
             pass
+
+    def setup_signal_handlers(self):
+        """Setup signal handlers for clean exit on Ctrl-C"""
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
+
+    def signal_handler(self, sig, frame):
+        """Handle interrupt signals (Ctrl-C) gracefully"""
+        self.cleanup_and_exit()
+
+    def cleanup_and_exit(self):
+        """Clean up resources and exit"""
+        try:
+            self.root.quit()
+            self.root.destroy()
+        except:
+            pass
+        sys.exit(0)

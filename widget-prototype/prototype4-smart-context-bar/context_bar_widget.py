@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import font as tkfont
 from typing import Dict, List, Any, Optional, Callable
 import webbrowser
+import signal
+import sys
 
 
 class ContextBarWidget:
@@ -62,6 +64,9 @@ class ContextBarWidget:
 
         # Bind keys
         self.bind_keys()
+
+        # Setup signal handlers for clean Ctrl-C exit
+        self.setup_signal_handlers()
 
     def build_bar(self):
         """Build compact context bar - Modern Material Design style"""
@@ -138,6 +143,21 @@ class ContextBarWidget:
             pady=2
         )
         info_btn.pack(side=tk.RIGHT, padx=4)
+
+        # Close button - Modern button styling
+        close_btn = tk.Button(
+            content,
+            text="✕",
+            font=self.small_font,
+            bg=self.bg_color,
+            fg='#636e72',
+            relief=tk.FLAT,
+            cursor='hand2',
+            command=self.hide,
+            padx=4,
+            pady=2
+        )
+        close_btn.pack(side=tk.RIGHT, padx=2)
 
     def show(self, result: Dict[str, Any], x: int = None, y: int = None):
         """Show context bar with results"""
@@ -673,3 +693,21 @@ BEST FOR:
             self.bar_window.update()
         except tk.TclError:
             pass
+
+    def setup_signal_handlers(self):
+        """Setup signal handlers for clean exit on Ctrl-C"""
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
+
+    def signal_handler(self, sig, frame):
+        """Handle interrupt signals (Ctrl-C) gracefully"""
+        self.cleanup_and_exit()
+
+    def cleanup_and_exit(self):
+        """Clean up resources and exit"""
+        try:
+            self.bar_window.quit()
+            self.bar_window.destroy()
+        except:
+            pass
+        sys.exit(0)

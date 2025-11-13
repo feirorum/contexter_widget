@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import ttk, font as tkfont
 from typing import Dict, List, Any, Optional, Callable
 import json
+import signal
+import sys
 
 
 class SidebarWidget:
@@ -61,6 +63,9 @@ class SidebarWidget:
 
         # Bind keys
         self.bind_keys()
+
+        # Setup signal handlers for clean Ctrl-C exit
+        self.setup_signal_handlers()
 
         # Start collapsed
         self.set_collapsed()
@@ -139,6 +144,21 @@ class SidebarWidget:
             pady=4
         )
         collapse_btn.pack(side=tk.RIGHT, padx=12)
+
+        # Close button - Modern styling
+        close_btn = tk.Button(
+            header,
+            text="✕",
+            bg=self.primary_color,
+            fg='white',
+            relief=tk.FLAT,
+            command=self.close_sidebar,
+            cursor='hand2',
+            font=self.normal_font,
+            padx=10,
+            pady=4
+        )
+        close_btn.pack(side=tk.RIGHT, padx=4)
 
         # Content area - Modern spacing
         content_frame = tk.Frame(self.expanded_frame, bg='white')
@@ -451,3 +471,25 @@ BEST FOR:
             self.root.update()
         except tk.TclError:
             pass
+
+    def close_sidebar(self):
+        """Close the sidebar completely"""
+        self.cleanup_and_exit()
+
+    def setup_signal_handlers(self):
+        """Setup signal handlers for clean exit on Ctrl-C"""
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
+
+    def signal_handler(self, sig, frame):
+        """Handle interrupt signals (Ctrl-C) gracefully"""
+        self.cleanup_and_exit()
+
+    def cleanup_and_exit(self):
+        """Clean up resources and exit"""
+        try:
+            self.root.quit()
+            self.root.destroy()
+        except:
+            pass
+        sys.exit(0)
