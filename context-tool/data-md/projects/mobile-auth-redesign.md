@@ -4,6 +4,10 @@ status: planning
 tags: [security, mobile, oauth, authentication]
 team_lead: Sarah Mitchell
 start_date: 2025-11-01
+window_patterns:
+  - ".*[Mm]obile.*[Aa]uth.*"
+  - ".*oauth.*redesign.*"
+  - ".*/mobile-auth/.*"
 ---
 
 # Mobile Auth Redesign

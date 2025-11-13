@@ -15,6 +15,8 @@ from .action_suggester import ActionSuggester
 from .context_analyzer import ContextAnalyzer
 from .saver import SmartSaver
 from .favourites_manager import FavouritesManager
+from .context_detection import ContextDetectionManager
+from .context_detection.detectors import WindowTitleDetector
 
 # Optional import for semantic search
 try:
@@ -62,6 +64,7 @@ system_monitor: Optional[Any] = None
 app_data_dir: Optional[Path] = None
 app_use_markdown: bool = False
 favourites_manager: Optional[FavouritesManager] = None
+context_detector: Optional[ContextDetectionManager] = None
 
 
 # WebSocket connection manager
@@ -117,7 +120,7 @@ def initialize_app(
         enable_semantic: Whether to enable semantic search
         use_markdown: Whether to load markdown files instead of YAML
     """
-    global db, analyzer, saver, app_data_dir, app_use_markdown, favourites_manager
+    global db, analyzer, saver, app_data_dir, app_use_markdown, favourites_manager, context_detector
 
     # Store global config
     app_data_dir = Path(data_dir)
@@ -127,6 +130,11 @@ def initialize_app(
     if use_markdown:
         favourites_manager = FavouritesManager(app_data_dir)
         print(f"⭐ Favourites manager initialized")
+
+        # Initialize context detection manager
+        context_detector = ContextDetectionManager()
+        context_detector.add_detector(WindowTitleDetector(enabled=True))
+        print(f"🔍 Context detection initialized")
 
     # Initialize database
     database = get_database(db_path)
@@ -741,6 +749,148 @@ async def remove_project_favourite(project_name: str, favourite: str):
             }
         else:
             raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Context detection endpoints
+@app.get("/api/context/detect")
+async def detect_context():
+    """
+    Detect current context once
+
+    Returns:
+        Detected project context or null
+    """
+    if not app_use_markdown or not context_detector or not favourites_manager:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        # Get project patterns
+        project_patterns = favourites_manager.get_all_project_patterns()
+
+        # Detect context
+        result = context_detector.detect_once(project_patterns)
+
+        if result and result.project_name:
+            return {
+                "project": result.project_name,
+                "confidence": result.confidence,
+                "source": result.source,
+                "raw_data": result.raw_data,
+                "timestamp": result.timestamp.isoformat()
+            }
+        else:
+            return {
+                "project": None,
+                "message": "No context detected"
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/context/current")
+async def get_current_context():
+    """
+    Get currently detected project context
+
+    Returns:
+        Current project context or null
+    """
+    if not app_use_markdown or not context_detector:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        current = context_detector.get_current_context()
+        last_detection = context_detector.get_last_detection()
+
+        if current and last_detection:
+            return {
+                "project": current,
+                "confidence": last_detection.confidence,
+                "source": last_detection.source,
+                "timestamp": last_detection.timestamp.isoformat()
+            }
+        else:
+            return {
+                "project": None
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/context/raw")
+async def get_raw_context():
+    """
+    Get raw context data from all detectors without pattern matching
+
+    Returns:
+        Raw context data from each detector
+    """
+    if not app_use_markdown or not context_detector:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        raw_contexts = context_detector.get_raw_contexts()
+        return raw_contexts
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/context/start-polling")
+async def start_context_polling(interval: float = 2.0):
+    """
+    Start periodic context detection
+
+    Args:
+        interval: Polling interval in seconds (default: 2.0)
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or not context_detector or not favourites_manager:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        # Get project patterns
+        project_patterns = favourites_manager.get_all_project_patterns()
+
+        # Start polling in background
+        import asyncio
+        asyncio.create_task(context_detector.start_polling(project_patterns, interval))
+
+        return {
+            "status": "started",
+            "interval": interval,
+            "message": f"Context detection started with {interval}s interval"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/context/stop-polling")
+async def stop_context_polling():
+    """
+    Stop periodic context detection
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or not context_detector:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        await context_detector.stop_polling()
+
+        return {
+            "status": "stopped",
+            "message": "Context detection stopped"
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

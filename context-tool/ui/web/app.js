@@ -1016,6 +1016,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         projectSelect.value = favouritesState.selectedProject;
         await loadProjectFavourites(favouritesState.selectedProject);
     }
+
+    // Start context detection polling
+    await startContextDetection();
 });
 
 // Load state from localStorage
@@ -1385,3 +1388,102 @@ function handleNotesSearch(event) {
     favouritesState.searchQuery = event.target.value;
     renderNotesTree();
 }
+
+// ============================================================================
+// CONTEXT DETECTION
+// ============================================================================
+
+let contextDetectionInterval = null;
+
+// Start context detection
+async function startContextDetection() {
+    try {
+        // Start polling on backend
+        const response = await fetch(`${API_BASE}/context/start-polling?interval=3.0`, {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            console.log('🔍 Context detection started');
+
+            // Poll current context every 3 seconds
+            contextDetectionInterval = setInterval(async () => {
+                await checkCurrentContext();
+            }, 3000);
+        }
+    } catch (error) {
+        console.error('Failed to start context detection:', error);
+    }
+}
+
+// Check current detected context
+async function checkCurrentContext() {
+    try {
+        const response = await fetch(`${API_BASE}/context/current`);
+
+        if (response.ok) {
+            const data = await response.json();
+
+            if (data.project && data.project !== favouritesState.selectedProject) {
+                // Context changed! Auto-select project
+                console.log(`🎯 Auto-selecting project: ${data.project} (confidence: ${data.confidence.toFixed(2)})`);
+                await autoSelectProject(data.project);
+            }
+        }
+    } catch (error) {
+        // Silent fail - context detection is optional
+    }
+}
+
+// Auto-select project based on context detection
+async function autoSelectProject(projectName) {
+    const projectSelect = document.getElementById('projectSelect');
+
+    // Check if project exists in dropdown
+    const option = Array.from(projectSelect.options).find(
+        opt => opt.value === projectName
+    );
+
+    if (option) {
+        // Auto-open favourites pane if not already open
+        if (!favouritesState.isOpen) {
+            toggleFavouritesPane();
+        }
+
+        // Select the project
+        projectSelect.value = projectName;
+        favouritesState.selectedProject = projectName;
+        saveFavouritesState();
+
+        // Load favourites
+        await loadProjectFavourites(projectName);
+
+        // Visual feedback
+        projectSelect.style.animation = 'pulse 0.5s ease-in-out';
+        setTimeout(() => {
+            projectSelect.style.animation = '';
+        }, 500);
+    }
+}
+
+// Stop context detection (cleanup)
+async function stopContextDetection() {
+    if (contextDetectionInterval) {
+        clearInterval(contextDetectionInterval);
+        contextDetectionInterval = null;
+    }
+
+    try {
+        await fetch(`${API_BASE}/context/stop-polling`, {
+            method: 'POST'
+        });
+        console.log('🔍 Context detection stopped');
+    } catch (error) {
+        console.error('Failed to stop context detection:', error);
+    }
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    stopContextDetection();
+});

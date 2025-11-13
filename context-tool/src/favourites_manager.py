@@ -201,3 +201,120 @@ class FavouritesManager:
             current_favourites.remove(favourite)
             return self.update_favourites(project_name, current_favourites)
         return True  # Already doesn't exist
+
+    def parse_window_title_patterns(self, project_name: str) -> List[str]:
+        """
+        Extract window title patterns from project markdown file
+
+        Looks for patterns in:
+        1. "## Window Title Patterns" section (list of regex patterns)
+        2. Frontmatter "window_patterns" field
+        3. If none found, returns default pattern: .*{project_name}.*
+
+        Args:
+            project_name: Name of the project
+
+        Returns:
+            List of regex patterns for matching window titles
+        """
+        project_file = self.get_project_file(project_name)
+        if not project_file:
+            # Default pattern: match project name anywhere in title
+            return [f".*{re.escape(project_name)}.*"]
+
+        try:
+            with open(project_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            patterns = []
+
+            # 1. Check frontmatter for window_patterns field
+            if content.startswith('---'):
+                parts = content.split('---', 2)
+                if len(parts) >= 3:
+                    import yaml
+                    try:
+                        frontmatter = yaml.safe_load(parts[1].strip()) or {}
+                        window_patterns = frontmatter.get('window_patterns', [])
+                        if isinstance(window_patterns, list):
+                            patterns.extend(window_patterns)
+                        elif isinstance(window_patterns, str):
+                            patterns.append(window_patterns)
+                    except yaml.YAMLError:
+                        pass
+
+            # 2. Check for "## Window Title Patterns" section
+            patterns_match = re.search(
+                r'^##\s+Window\s+Title\s+Patterns?\s*$.*?(?=^##\s+|\Z)',
+                content,
+                re.MULTILINE | re.DOTALL | re.IGNORECASE
+            )
+
+            if patterns_match:
+                patterns_section = patterns_match.group(0)
+                # Extract patterns from list items or code blocks
+                # Look for: - pattern or `pattern`
+                list_patterns = re.findall(r'^[-*]\s+`?(.+?)`?\s*$', patterns_section, re.MULTILINE)
+                patterns.extend([p.strip() for p in list_patterns if p.strip()])
+
+            # 3. If no patterns found, use default
+            if not patterns:
+                patterns = [f".*{re.escape(project_name)}.*"]
+
+            return patterns
+
+        except Exception as e:
+            print(f"Error parsing window title patterns from {project_file}: {e}")
+            # Return default pattern on error
+            return [f".*{re.escape(project_name)}.*"]
+
+    def get_all_project_patterns(self) -> Dict[str, List[str]]:
+        """
+        Get window title patterns for all projects
+
+        Returns:
+            Dict mapping project names to lists of regex patterns
+        """
+        if not self.projects_dir.exists():
+            return {}
+
+        patterns_map = {}
+
+        for md_file in self.projects_dir.glob("*.md"):
+            try:
+                # Extract project name
+                with open(md_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                project_name = None
+
+                # Try frontmatter first
+                if content.startswith('---'):
+                    parts = content.split('---', 2)
+                    if len(parts) >= 3:
+                        import yaml
+                        try:
+                            frontmatter = yaml.safe_load(parts[1].strip()) or {}
+                            project_name = frontmatter.get('name')
+                        except yaml.YAMLError:
+                            pass
+
+                # Try first heading if no frontmatter name
+                if not project_name:
+                    header_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+                    if header_match:
+                        project_name = header_match.group(1).strip()
+
+                # Fallback to filename
+                if not project_name:
+                    project_name = md_file.stem.replace('-', ' ').title()
+
+                # Get patterns for this project
+                patterns = self.parse_window_title_patterns(project_name)
+                patterns_map[project_name] = patterns
+
+            except Exception as e:
+                print(f"Error loading project patterns from {md_file}: {e}")
+                continue
+
+        return patterns_map
