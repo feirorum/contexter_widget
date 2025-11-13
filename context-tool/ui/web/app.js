@@ -1859,8 +1859,9 @@ function loadSplitPaneState() {
     if (saved) {
         const parsed = JSON.parse(saved);
         splitPaneState = { ...splitPaneState, ...parsed };
-        applySplitPaneHeight();
     }
+    // Always apply height (uses default 50% if not saved)
+    applySplitPaneHeight();
 }
 
 // Save split pane state
@@ -1878,6 +1879,9 @@ function applySplitPaneHeight() {
     if (topPane && bottomPane) {
         topPane.style.flex = `0 0 ${splitPaneState.topHeight}%`;
         bottomPane.style.flex = `0 0 ${100 - splitPaneState.topHeight}%`;
+        console.log(`✓ Applied split pane height: ${splitPaneState.topHeight}% / ${100 - splitPaneState.topHeight}%`);
+    } else {
+        console.error('❌ Split pane elements not found!', { topPane: !!topPane, bottomPane: !!bottomPane });
     }
 }
 
@@ -1955,11 +1959,17 @@ async function loadProjectContent(projectName) {
 function displayProjectContent(content) {
     const display = document.getElementById('projectContentDisplay');
 
+    if (!display) {
+        console.error('❌ projectContentDisplay element not found!');
+        return;
+    }
+
     if (!content || content.trim() === '') {
         display.innerHTML = '<div class="empty-content">Project file is empty</div>';
     } else {
         // Display as plain text (could add markdown rendering here)
         display.textContent = content;
+        console.log(`✓ Displayed ${content.length} characters of project content`);
     }
 }
 
