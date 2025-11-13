@@ -1037,6 +1037,12 @@ function toggleFavouritesPane() {
         pane.classList.add('visible');
         toggleBtn.textContent = '✕';
         toggleBtn.title = 'Close Favourites Panel';
+
+        // Initialize split pane when favourites pane opens
+        // Use setTimeout to ensure DOM is fully rendered
+        setTimeout(() => {
+            initializeSplitPane();
+        }, 50);
     } else {
         container.classList.remove('third-pane-open');
         pane.classList.remove('visible');
@@ -1850,7 +1856,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // Split pane state
 let splitPaneState = {
     isDragging: false,
-    topHeight: 50 // percentage
+    topHeight: 50, // percentage
+    initialized: false // Track if already initialized
 };
 
 // Load split pane state
@@ -1887,12 +1894,22 @@ function applySplitPaneHeight() {
 
 // Initialize split pane
 function initializeSplitPane() {
+    // Always load and apply state
     loadSplitPaneState();
+
+    // Only set up event listeners once
+    if (splitPaneState.initialized) {
+        console.log('✓ Split pane already initialized, just applying height');
+        return;
+    }
 
     const divider = document.getElementById('splitDivider');
     const container = document.querySelector('.split-pane-container');
 
-    if (!divider || !container) return;
+    if (!divider || !container) {
+        console.warn('⚠️ Split pane elements not ready yet');
+        return;
+    }
 
     divider.addEventListener('mousedown', (e) => {
         splitPaneState.isDragging = true;
@@ -1919,6 +1936,9 @@ function initializeSplitPane() {
             saveSplitPaneState();
         }
     });
+
+    splitPaneState.initialized = true;
+    console.log('✓ Split pane initialized successfully');
 }
 
 // Current project content state
