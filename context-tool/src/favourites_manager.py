@@ -318,3 +318,48 @@ class FavouritesManager:
                 continue
 
         return patterns_map
+
+    def get_project_content(self, project_name: str) -> Optional[str]:
+        """
+        Get the full markdown content of a project file
+
+        Args:
+            project_name: Name of the project
+
+        Returns:
+            Full markdown content, or None if file not found
+        """
+        project_file = self.get_project_file(project_name)
+        if not project_file:
+            return None
+
+        try:
+            with open(project_file, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            print(f"Error reading project content from {project_file}: {e}")
+            return None
+
+    def save_project_content(self, project_name: str, content: str) -> bool:
+        """
+        Save the full markdown content to a project file
+
+        Args:
+            project_name: Name of the project
+            content: Full markdown content to save
+
+        Returns:
+            True if successful, False otherwise
+        """
+        project_file = self.get_project_file(project_name)
+        if not project_file:
+            print(f"Project file not found for: {project_name}")
+            return False
+
+        try:
+            with open(project_file, 'w', encoding='utf-8') as f:
+                f.write(content)
+            return True
+        except Exception as e:
+            print(f"Error saving project content to {project_file}: {e}")
+            return False

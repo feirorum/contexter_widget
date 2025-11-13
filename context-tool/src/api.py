@@ -764,6 +764,70 @@ async def remove_project_favourite(project_name: str, favourite: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/project/{project_name}/content")
+async def get_project_content(project_name: str):
+    """
+    Get the full markdown content of a project file
+
+    Args:
+        project_name: Name of the project
+
+    Returns:
+        Full markdown content
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Project content only available in markdown mode")
+
+    try:
+        content = favourites_manager.get_project_content(project_name)
+        if content is not None:
+            return {
+                "project": project_name,
+                "content": content
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SaveProjectContentRequest(BaseModel):
+    content: str
+
+
+@app.put("/api/project/{project_name}/content")
+async def save_project_content(project_name: str, request: SaveProjectContentRequest):
+    """
+    Save the full markdown content to a project file
+
+    Args:
+        project_name: Name of the project
+        request: Content to save
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Project content only available in markdown mode")
+
+    try:
+        success = favourites_manager.save_project_content(project_name, request.content)
+        if success:
+            # Reload data after save
+            if db and app_data_dir:
+                load_data(db, app_data_dir, format='markdown')
+                print(f"✓ Reloaded data after project update")
+
+            return {
+                "status": "success",
+                "message": f"Saved project content for {project_name}"
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Context detection endpoints
 @app.get("/api/context/detect")
 async def detect_context():

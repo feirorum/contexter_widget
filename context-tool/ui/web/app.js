@@ -1098,12 +1098,14 @@ async function handleProjectChange(event) {
 
     if (projectName) {
         await loadProjectFavourites(projectName);
+        await loadProjectContent(projectName);
     } else {
         // Clear favourites display
         document.getElementById('favouritesList').innerHTML =
             '<div class="empty-favourites">Select a project to view its favourites</div>';
         favouritesState.currentFavourites = [];
         renderNotesTree();
+        await loadProjectContent(null);
     }
 }
 
@@ -1838,5 +1840,245 @@ document.addEventListener('DOMContentLoaded', () => {
     // Restore pane state
     if (detectorState.isOpen) {
         toggleDetectorPane();
+    }
+});
+
+// ========================================
+// SPLIT PANE & PROJECT CONTENT
+// ========================================
+
+// Split pane state
+let splitPaneState = {
+    isDragging: false,
+    topHeight: 50 // percentage
+};
+
+// Load split pane state
+function loadSplitPaneState() {
+    const saved = localStorage.getItem('splitPaneState');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        splitPaneState = { ...splitPaneState, ...parsed };
+        applySplitPaneHeight();
+    }
+}
+
+// Save split pane state
+function saveSplitPaneState() {
+    localStorage.setItem('splitPaneState', JSON.stringify({
+        topHeight: splitPaneState.topHeight
+    }));
+}
+
+// Apply split pane height
+function applySplitPaneHeight() {
+    const topPane = document.querySelector('.split-pane-top');
+    const bottomPane = document.querySelector('.split-pane-bottom');
+
+    if (topPane && bottomPane) {
+        topPane.style.flex = `0 0 ${splitPaneState.topHeight}%`;
+        bottomPane.style.flex = `0 0 ${100 - splitPaneState.topHeight}%`;
+    }
+}
+
+// Initialize split pane
+function initializeSplitPane() {
+    loadSplitPaneState();
+
+    const divider = document.getElementById('splitDivider');
+    const container = document.querySelector('.split-pane-container');
+
+    if (!divider || !container) return;
+
+    divider.addEventListener('mousedown', (e) => {
+        splitPaneState.isDragging = true;
+        document.body.style.cursor = 'ns-resize';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!splitPaneState.isDragging) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const relativeY = e.clientY - containerRect.top;
+        const percentage = (relativeY / containerRect.height) * 100;
+
+        // Clamp between 20% and 80%
+        splitPaneState.topHeight = Math.max(20, Math.min(80, percentage));
+        applySplitPaneHeight();
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (splitPaneState.isDragging) {
+            splitPaneState.isDragging = false;
+            document.body.style.cursor = '';
+            saveSplitPaneState();
+        }
+    });
+}
+
+// Current project content state
+let projectContentState = {
+    currentProject: null,
+    originalContent: null,
+    isEditing: false
+};
+
+// Load project content
+async function loadProjectContent(projectName) {
+    if (!projectName) {
+        // Clear display
+        document.getElementById('projectContentDisplay').innerHTML = '<div class="empty-content">Select a project to view its content</div>';
+        projectContentState.currentProject = null;
+        projectContentState.originalContent = null;
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/project/${encodeURIComponent(projectName)}/content`);
+        const data = await response.json();
+
+        projectContentState.currentProject = projectName;
+        projectContentState.originalContent = data.content;
+
+        // Display content
+        displayProjectContent(data.content);
+
+        console.log(`📄 Loaded project content for: ${projectName}`);
+    } catch (error) {
+        console.error('Failed to load project content:', error);
+        document.getElementById('projectContentDisplay').innerHTML = '<div class="empty-content">⚠️ Failed to load project content</div>';
+    }
+}
+
+// Display project content
+function displayProjectContent(content) {
+    const display = document.getElementById('projectContentDisplay');
+
+    if (!content || content.trim() === '') {
+        display.innerHTML = '<div class="empty-content">Project file is empty</div>';
+    } else {
+        // Display as plain text (could add markdown rendering here)
+        display.textContent = content;
+    }
+}
+
+// Enter edit mode
+function enterEditMode() {
+    if (!projectContentState.currentProject) {
+        return;
+    }
+
+    projectContentState.isEditing = true;
+
+    // Hide display, show edit
+    document.getElementById('projectContentDisplay').style.display = 'none';
+    document.getElementById('projectContentEdit').style.display = 'flex';
+
+    // Load content into textarea
+    const textarea = document.getElementById('projectContentTextarea');
+    textarea.value = projectContentState.originalContent || '';
+
+    // Focus textarea
+    textarea.focus();
+
+    console.log(`✏️ Entered edit mode for: ${projectContentState.currentProject}`);
+}
+
+// Cancel edit mode
+function cancelEditMode() {
+    projectContentState.isEditing = false;
+
+    // Show display, hide edit
+    document.getElementById('projectContentDisplay').style.display = 'flex';
+    document.getElementById('projectContentEdit').style.display = 'none';
+
+    console.log(`✕ Cancelled edit mode`);
+}
+
+// Save project content
+async function saveProjectContent() {
+    if (!projectContentState.currentProject) {
+        return;
+    }
+
+    const textarea = document.getElementById('projectContentTextarea');
+    const newContent = textarea.value;
+
+    try {
+        const response = await fetch(`${API_BASE}/project/${encodeURIComponent(projectContentState.currentProject)}/content`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                content: newContent
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            console.log(`💾 Saved project content for: ${projectContentState.currentProject}`);
+
+            // Update state
+            projectContentState.originalContent = newContent;
+
+            // Exit edit mode
+            cancelEditMode();
+
+            // Refresh display
+            displayProjectContent(newContent);
+
+            // Reload project data (this will refresh favourites and other data)
+            await loadProjectFavourites(projectContentState.currentProject);
+        } else {
+            console.error('Failed to save project content:', result);
+            alert('Failed to save project content');
+        }
+    } catch (error) {
+        console.error('Failed to save project content:', error);
+        alert('Failed to save project content: ' + error.message);
+    }
+}
+
+// Initialize project content functionality
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize split pane
+    initializeSplitPane();
+
+    // Edit button
+    const editBtn = document.getElementById('editProjectBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', enterEditMode);
+    }
+
+    // Save button
+    const saveBtn = document.getElementById('saveProjectBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveProjectContent);
+    }
+
+    // Cancel button
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', cancelEditMode);
+    }
+
+    // Also handle keyboard shortcuts in edit mode
+    const textarea = document.getElementById('projectContentTextarea');
+    if (textarea) {
+        textarea.addEventListener('keydown', (e) => {
+            // Ctrl+S or Cmd+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveProjectContent();
+            }
+            // Escape to cancel
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEditMode();
+            }
+        });
     }
 });
