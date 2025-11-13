@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import sqlite3
 from pathlib import Path
+from datetime import datetime
 
 from .database import get_database
 from .data_loaders import load_data
@@ -16,7 +17,13 @@ from .context_analyzer import ContextAnalyzer
 from .saver import SmartSaver
 from .favourites_manager import FavouritesManager
 from .context_detection import ContextDetectionManager
-from .context_detection.detectors import WindowTitleDetector
+from .context_detection.detectors import (
+    WindowTitleDetector,
+    IdeProjectDetector,
+    WorkingDirectoryDetector,
+    GitRepoDetector,
+    ProcessDetector
+)
 
 # Optional import for semantic search
 try:
@@ -134,7 +141,11 @@ def initialize_app(
         # Initialize context detection manager
         context_detector = ContextDetectionManager()
         context_detector.add_detector(WindowTitleDetector(enabled=True))
-        print(f"🔍 Context detection initialized")
+        context_detector.add_detector(IdeProjectDetector(enabled=True))
+        context_detector.add_detector(WorkingDirectoryDetector(enabled=True))
+        context_detector.add_detector(GitRepoDetector(enabled=True))
+        context_detector.add_detector(ProcessDetector(enabled=True))
+        print(f"🔍 Context detection initialized with 5 detectors")
 
     # Initialize database
     database = get_database(db_path)
@@ -889,6 +900,53 @@ async def stop_context_polling():
         return {
             "status": "stopped",
             "message": "Context detection stopped"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/context/detectors/all")
+async def get_all_detectors_data():
+    """
+    Get raw data from all context detectors
+
+    Returns:
+        Dict with data from each detector including availability and raw context
+    """
+    if not app_use_markdown or not context_detector:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        detectors_data = []
+
+        # Get all detectors
+        for detector in context_detector.detectors:
+            # Get raw context without pattern matching
+            raw_context = detector.get_raw_context()
+
+            # Get last detection result if available
+            last_result = None
+            if detector.last_result:
+                last_result = {
+                    "project_name": detector.last_result.project_name,
+                    "confidence": detector.last_result.confidence,
+                    "source": detector.last_result.source,
+                    "timestamp": detector.last_result.timestamp.isoformat()
+                }
+
+            detectors_data.append({
+                "name": detector.name,
+                "enabled": detector.enabled,
+                "available": detector.is_available(),
+                "raw_context": raw_context,
+                "last_result": last_result,
+                "timestamp": datetime.now().isoformat()
+            })
+
+        return {
+            "detectors": detectors_data,
+            "count": len(detectors_data)
         }
 
     except Exception as e:

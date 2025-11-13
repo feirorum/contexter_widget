@@ -1606,3 +1606,237 @@ async function useAsContext(projectName) {
 
     console.log(`📌 Manually selected context: ${projectName}`);
 }
+
+// ========================================
+// DETECTOR INSPECTOR PANE
+// ========================================
+
+// Detector state
+let detectorState = {
+    isOpen: false,
+    autoRefresh: true,
+    refreshInterval: 3000,
+    pollingTimer: null
+};
+
+// Load detector state from localStorage
+function loadDetectorState() {
+    const saved = localStorage.getItem('detectorState');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        detectorState = { ...detectorState, ...parsed };
+        // Don't restore polling timer
+        detectorState.pollingTimer = null;
+    }
+}
+
+// Save detector state to localStorage
+function saveDetectorState() {
+    localStorage.setItem('detectorState', JSON.stringify({
+        isOpen: detectorState.isOpen,
+        autoRefresh: detectorState.autoRefresh,
+        refreshInterval: detectorState.refreshInterval
+    }));
+}
+
+// Toggle detector pane visibility
+function toggleDetectorPane() {
+    const container = document.querySelector('.container');
+    const pane = document.getElementById('detectorPane');
+    const toggleBtn = document.getElementById('toggleDetectors');
+
+    detectorState.isOpen = !detectorState.isOpen;
+
+    if (detectorState.isOpen) {
+        container.classList.add('fourth-pane-open');
+        pane.classList.add('visible');
+        toggleBtn.textContent = '✕';
+
+        // Start polling if auto-refresh is enabled
+        if (detectorState.autoRefresh) {
+            startDetectorPolling();
+        } else {
+            // Just fetch once
+            fetchAllDetectors();
+        }
+    } else {
+        container.classList.remove('fourth-pane-open');
+        pane.classList.remove('visible');
+        toggleBtn.textContent = '🔍';
+
+        // Stop polling
+        stopDetectorPolling();
+    }
+
+    saveDetectorState();
+}
+
+// Fetch all detector data
+async function fetchAllDetectors() {
+    try {
+        const response = await fetch(`${API_BASE}/context/detectors/all`);
+        const data = await response.json();
+
+        displayDetectorData(data.detectors);
+    } catch (error) {
+        console.error('Failed to fetch detector data:', error);
+        const content = document.getElementById('detectorContent');
+        content.innerHTML = `
+            <div class="detector-empty">
+                ⚠️ Failed to load detector data<br/>
+                <small>${error.message}</small>
+            </div>
+        `;
+    }
+}
+
+// Display detector data in cards
+function displayDetectorData(detectors) {
+    const content = document.getElementById('detectorContent');
+
+    if (!detectors || detectors.length === 0) {
+        content.innerHTML = '<div class="detector-empty">No detectors available</div>';
+        return;
+    }
+
+    let html = '';
+
+    for (const detector of detectors) {
+        const availableClass = detector.available ? 'available' : 'unavailable';
+        const statusClass = detector.available ? 'available' : 'unavailable';
+        const statusIcon = detector.available ? '🟢' : '🔴';
+
+        // Format the detector name nicely
+        const displayName = detector.name
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+
+        // Prepare raw data for display
+        let rawDataHtml = '<div class="detector-empty">No data available</div>';
+
+        if (detector.raw_context) {
+            const formatted = JSON.stringify(detector.raw_context, null, 2);
+            rawDataHtml = `<pre>${escapeHtml(formatted)}</pre>`;
+        } else if (!detector.available) {
+            rawDataHtml = '<div class="detector-empty">Detector not available on this system</div>';
+        }
+
+        // Last result info
+        let lastResultHtml = '';
+        if (detector.last_result && detector.last_result.project_name) {
+            lastResultHtml = `
+                <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border-radius: 4px; font-size: 12px;">
+                    <strong>Last Match:</strong> ${escapeHtml(detector.last_result.project_name)}<br/>
+                    <strong>Confidence:</strong> ${(detector.last_result.confidence * 100).toFixed(0)}%<br/>
+                    <strong>Source:</strong> ${escapeHtml(detector.last_result.source)}
+                </div>
+            `;
+        }
+
+        html += `
+            <div class="detector-card ${availableClass}">
+                <div class="detector-card-header">
+                    <div class="detector-card-title">
+                        <div class="detector-status ${statusClass}"></div>
+                        <span>${statusIcon} ${escapeHtml(displayName)}</span>
+                    </div>
+                    <button class="detector-refresh-btn" onclick="refreshSingleDetector('${escapeHtml(detector.name)}')" title="Refresh this detector">
+                        🔄
+                    </button>
+                </div>
+                <div class="detector-data">
+                    ${rawDataHtml}
+                </div>
+                ${lastResultHtml}
+                <div class="detector-timestamp">
+                    Updated: ${new Date(detector.timestamp).toLocaleTimeString()}
+                </div>
+            </div>
+        `;
+    }
+
+    content.innerHTML = html;
+}
+
+// Start polling for detector data
+function startDetectorPolling() {
+    // Clear any existing timer
+    stopDetectorPolling();
+
+    // Fetch immediately
+    fetchAllDetectors();
+
+    // Set up interval
+    detectorState.pollingTimer = setInterval(() => {
+        fetchAllDetectors();
+    }, detectorState.refreshInterval);
+
+    console.log(`🔄 Detector polling started (${detectorState.refreshInterval}ms interval)`);
+}
+
+// Stop polling
+function stopDetectorPolling() {
+    if (detectorState.pollingTimer) {
+        clearInterval(detectorState.pollingTimer);
+        detectorState.pollingTimer = null;
+        console.log('⏸️ Detector polling stopped');
+    }
+}
+
+// Refresh single detector (future enhancement - for now just refresh all)
+function refreshSingleDetector(detectorName) {
+    console.log(`🔄 Refreshing detector: ${detectorName}`);
+    fetchAllDetectors();
+}
+
+// Initialize detector inspector
+document.addEventListener('DOMContentLoaded', () => {
+    // Load saved state
+    loadDetectorState();
+
+    // Set up toggle button
+    const toggleBtn = document.getElementById('toggleDetectors');
+    toggleBtn.addEventListener('click', toggleDetectorPane);
+
+    // Set up auto-refresh checkbox
+    const autoRefreshCheckbox = document.getElementById('autoRefreshDetectors');
+    autoRefreshCheckbox.checked = detectorState.autoRefresh;
+    autoRefreshCheckbox.addEventListener('change', (e) => {
+        detectorState.autoRefresh = e.target.checked;
+        saveDetectorState();
+
+        if (detectorState.isOpen) {
+            if (detectorState.autoRefresh) {
+                startDetectorPolling();
+            } else {
+                stopDetectorPolling();
+            }
+        }
+    });
+
+    // Set up refresh interval selector
+    const intervalSelect = document.getElementById('refreshInterval');
+    intervalSelect.value = detectorState.refreshInterval;
+    intervalSelect.addEventListener('change', (e) => {
+        detectorState.refreshInterval = parseInt(e.target.value);
+        saveDetectorState();
+
+        // Restart polling with new interval
+        if (detectorState.isOpen && detectorState.autoRefresh) {
+            startDetectorPolling();
+        }
+    });
+
+    // Set up manual refresh button
+    const refreshAllBtn = document.getElementById('refreshAllDetectors');
+    refreshAllBtn.addEventListener('click', () => {
+        console.log('🔄 Manual refresh triggered');
+        fetchAllDetectors();
+    });
+
+    // Restore pane state
+    if (detectorState.isOpen) {
+        toggleDetectorPane();
+    }
+});

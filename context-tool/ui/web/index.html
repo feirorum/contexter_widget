@@ -19,10 +19,10 @@
         }
 
         .container {
-            max-width: 1800px;
+            max-width: 2400px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 1fr 0fr;
+            grid-template-columns: 1fr 1fr 0fr 0fr;
             gap: 20px;
             height: calc(100vh - 40px);
             transition: grid-template-columns 0.3s ease;
@@ -30,7 +30,15 @@
         }
 
         .container.third-pane-open {
-            grid-template-columns: 1fr 1fr 380px;
+            grid-template-columns: 1fr 1fr 380px 0fr;
+        }
+
+        .container.fourth-pane-open {
+            grid-template-columns: 1fr 1fr 0fr 400px;
+        }
+
+        .container.third-pane-open.fourth-pane-open {
+            grid-template-columns: 1fr 1fr 380px 400px;
         }
 
         .panel {
@@ -757,6 +765,220 @@
         .use-context-btn:hover {
             background: #5568d3;
         }
+
+        /* Fourth pane - Detector Inspector */
+        #detectorPane {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        #detectorPane.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .detector-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .detector-header h1 {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .detector-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .detector-controls label {
+            font-size: 13px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .detector-controls input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .detector-controls select {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .detector-controls button {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .detector-controls button:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .detector-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .detector-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.2s;
+        }
+
+        .detector-card.available {
+            border-color: #4caf50;
+        }
+
+        .detector-card.unavailable {
+            border-color: #f44336;
+            opacity: 0.6;
+        }
+
+        .detector-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .detector-card-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            color: #333;
+            font-size: 15px;
+        }
+
+        .detector-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .detector-status.available {
+            background: #4caf50;
+        }
+
+        .detector-status.unavailable {
+            background: #f44336;
+        }
+
+        .detector-refresh-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .detector-refresh-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .detector-data {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+        }
+
+        .detector-data pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .detector-timestamp {
+            font-size: 11px;
+            color: #999;
+            margin-top: 8px;
+        }
+
+        .detector-empty {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 13px;
+        }
+
+        #toggleDetectors {
+            position: fixed;
+            right: 90px;
+            top: 30px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        #toggleDetectors:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+            transform: scale(1.05);
+        }
+
+        /* Detector data scrollbar */
+        .detector-data::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .detector-data::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        .detector-data::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 2px;
+        }
+
+        .detector-data::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body>
@@ -896,11 +1118,39 @@
                 </div>
             </div>
         </div>
+
+        <!-- Fourth Panel: Detector Inspector -->
+        <div id="detectorPane">
+            <div class="detector-header">
+                <h1>🔍 Context Detectors</h1>
+                <div class="detector-controls">
+                    <label>
+                        <input type="checkbox" id="autoRefreshDetectors" checked />
+                        Auto-refresh
+                    </label>
+                    <select id="refreshInterval">
+                        <option value="1000">1s</option>
+                        <option value="3000" selected>3s</option>
+                        <option value="5000">5s</option>
+                        <option value="10000">10s</option>
+                    </select>
+                    <button id="refreshAllDetectors">🔄 Refresh All</button>
+                </div>
+            </div>
+            <div class="detector-content" id="detectorContent">
+                <div class="detector-empty">
+                    Enable detectors to see live data
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Toggle Button -->
+    <!-- Toggle Buttons -->
     <button id="toggleFavourites" title="Toggle Favourites Panel">
         ⭐
+    </button>
+    <button id="toggleDetectors" title="Toggle Detector Inspector">
+        🔍
     </button>
 
     <!-- Save Dialog Modal -->
