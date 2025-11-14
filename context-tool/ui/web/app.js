@@ -37,9 +37,6 @@ function connectWebSocket() {
             clearInterval(reconnectInterval);
             reconnectInterval = null;
         }
-
-        // Show system mode indicator if enabled
-        showSystemModeIndicator();
     };
 
     ws.onmessage = (event) => {
@@ -60,7 +57,6 @@ function connectWebSocket() {
 
     ws.onclose = () => {
         console.log('WebSocket disconnected. Reconnecting...');
-        hideSystemModeIndicator();
 
         // Attempt to reconnect after 3 seconds
         if (!reconnectInterval) {
@@ -69,39 +65,6 @@ function connectWebSocket() {
             }, 3000);
         }
     };
-}
-
-// Show indicator that system mode is active
-function showSystemModeIndicator() {
-    // Check if we're receiving system broadcasts
-    const indicator = document.createElement('div');
-    indicator.id = 'system-mode-indicator';
-    indicator.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-size: 14px;
-        z-index: 1000;
-        animation: slideIn 0.3s ease-out;
-    `;
-    indicator.innerHTML = '🔍 System Mode Active - Copy text anywhere!';
-
-    // Only show if not already present
-    if (!document.getElementById('system-mode-indicator')) {
-        document.body.appendChild(indicator);
-    }
-}
-
-function hideSystemModeIndicator() {
-    const indicator = document.getElementById('system-mode-indicator');
-    if (indicator) {
-        indicator.remove();
-    }
 }
 
 // Load database statistics
@@ -533,10 +496,18 @@ function renderMatch(match, index) {
         needsExpansion = descLines.length > 3;
 
         const preview = truncateLines(descText, 3);
+        const projectName = data.name || 'Unknown';
 
         content = `
             <div class="match-item" style="border-left: 4px solid #fd7e14; padding-left: 12px;">
-                <div><strong>📁 ${data.name || 'Unknown'}</strong></div>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <strong>📁 ${projectName}</strong>
+                    </div>
+                    <button class="use-context-btn" onclick="useAsContext('${escapeHtml(projectName)}')">
+                        ⭐ Use as Context
+                    </button>
+                </div>
                 ${data.status ? `<div style="margin-top: 4px;">Status: <span style="background: #fd7e14; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">${data.status}</span></div>` : ''}
                 ${descText ? `
                     <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
@@ -973,3 +944,1171 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// ============================================================================
+// FAVOURITES PANE FUNCTIONALITY
+// ============================================================================
+
+let favouritesState = {
+    isOpen: false,
+    selectedProject: null,
+    currentFavourites: [],
+    notesHierarchy: null,
+    searchQuery: ''
+};
+
+// Context history management
+let contextHistory = {
+    items: [], // Array of project names
+    currentIndex: -1, // Current position in history
+    maxSize: 10 // Maximum history size
+};
+
+// Initialize favourites pane
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load saved state from localStorage
+    loadFavouritesState();
+
+    // Set up toggle button
+    const toggleBtn = document.getElementById('toggleFavourites');
+    toggleBtn.addEventListener('click', toggleFavouritesPane);
+
+    // Set up project selector
+    const projectSelect = document.getElementById('projectSelect');
+    projectSelect.addEventListener('change', handleProjectChange);
+
+    // Set up search
+    const searchInput = document.getElementById('notesSearch');
+    searchInput.addEventListener('input', handleNotesSearch);
+
+    // Load projects and notes hierarchy
+    await loadProjects();
+    await loadNotesHierarchy();
+
+    // Apply saved state
+    if (favouritesState.isOpen) {
+        toggleFavouritesPane();
+    }
+
+    if (favouritesState.selectedProject) {
+        projectSelect.value = favouritesState.selectedProject;
+        await loadProjectFavourites(favouritesState.selectedProject);
+    }
+
+    // Set up context navigation buttons
+    setupContextNavigation();
+
+    // Start context detection polling
+    await startContextDetection();
+});
+
+// Load state from localStorage
+function loadFavouritesState() {
+    const saved = localStorage.getItem('favouritesState');
+    if (saved) {
+        try {
+            const state = JSON.parse(saved);
+            favouritesState.isOpen = state.isOpen || false;
+            favouritesState.selectedProject = state.selectedProject || null;
+        } catch (e) {
+            console.error('Failed to load favourites state:', e);
+        }
+    }
+}
+
+// Save state to localStorage
+function saveFavouritesState() {
+    localStorage.setItem('favouritesState', JSON.stringify({
+        isOpen: favouritesState.isOpen,
+        selectedProject: favouritesState.selectedProject
+    }));
+}
+
+// Toggle favourites pane visibility
+function toggleFavouritesPane() {
+    const container = document.querySelector('.container');
+    const pane = document.getElementById('favouritesPane');
+    const toggleBtn = document.getElementById('toggleFavourites');
+
+    favouritesState.isOpen = !favouritesState.isOpen;
+
+    if (favouritesState.isOpen) {
+        container.classList.add('third-pane-open');
+        pane.classList.add('visible');
+        toggleBtn.textContent = '✕';
+        toggleBtn.title = 'Close Favourites Panel';
+
+        // Initialize split pane when favourites pane opens
+        // Use setTimeout to ensure DOM is fully rendered
+        setTimeout(() => {
+            initializeSplitPane();
+        }, 50);
+    } else {
+        container.classList.remove('third-pane-open');
+        pane.classList.remove('visible');
+        toggleBtn.textContent = '⭐';
+        toggleBtn.title = 'Open Favourites Panel';
+    }
+
+    saveFavouritesState();
+}
+
+// Load projects into selector
+async function loadProjects() {
+    try {
+        const response = await fetch(`${API_BASE}/projects`);
+        if (!response.ok) throw new Error('Failed to load projects');
+
+        const projects = await response.json();
+        const select = document.getElementById('projectSelect');
+
+        // Clear existing options except first
+        select.innerHTML = '<option value="">-- Select a project --</option>';
+
+        projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.name;
+            option.textContent = project.name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading projects:', error);
+    }
+}
+
+// Load notes hierarchy
+async function loadNotesHierarchy() {
+    try {
+        const response = await fetch(`${API_BASE}/notes/hierarchy`);
+        if (!response.ok) throw new Error('Failed to load notes hierarchy');
+
+        favouritesState.notesHierarchy = await response.json();
+        renderNotesTree();
+    } catch (error) {
+        console.error('Error loading notes hierarchy:', error);
+        document.getElementById('notesTree').innerHTML =
+            '<div class="empty-state">Failed to load notes</div>';
+    }
+}
+
+// Handle project selection change
+async function handleProjectChange(event) {
+    const projectName = event.target.value;
+    favouritesState.selectedProject = projectName;
+    saveFavouritesState();
+
+    // Add to context history
+    if (projectName) {
+        addToContextHistory(projectName, false);
+    }
+
+    if (projectName) {
+        await loadProjectFavourites(projectName);
+        await loadProjectContent(projectName);
+    } else {
+        // Clear favourites display
+        document.getElementById('favouritesList').innerHTML =
+            '<div class="empty-favourites">Select a project to view its favourites</div>';
+        favouritesState.currentFavourites = [];
+        renderNotesTree();
+        await loadProjectContent(null);
+    }
+}
+
+// Load favourites for a project
+async function loadProjectFavourites(projectName) {
+    try {
+        const response = await fetch(`${API_BASE}/project/${encodeURIComponent(projectName)}/favourites`);
+        if (!response.ok) throw new Error('Failed to load favourites');
+
+        const data = await response.json();
+        favouritesState.currentFavourites = data.favourites || [];
+        renderFavouritesList();
+        renderNotesTree(); // Re-render to update checkboxes
+    } catch (error) {
+        console.error('Error loading favourites:', error);
+        document.getElementById('favouritesList').innerHTML =
+            '<div class="empty-favourites">Failed to load favourites</div>';
+    }
+}
+
+// Render favourites list
+function renderFavouritesList() {
+    const container = document.getElementById('favouritesList');
+
+    if (favouritesState.currentFavourites.length === 0) {
+        container.innerHTML = '<div class="empty-favourites">No favourites yet. Add some below!</div>';
+        return;
+    }
+
+    container.innerHTML = favouritesState.currentFavourites.map(fav => {
+        const type = guessTypeFromName(fav);
+        const icon = getIconForType(type);
+
+        return `
+            <div class="favourite-item" data-name="${escapeHtml(fav)}">
+                <span class="icon type-${type}">${icon}</span>
+                <span class="name">${escapeHtml(fav)}</span>
+                <button class="remove-btn" onclick="removeFavourite('${escapeHtml(fav)}')">×</button>
+            </div>
+        `;
+    }).join('');
+}
+
+// Guess type from name (simple heuristic)
+function guessTypeFromName(name) {
+    const hierarchy = favouritesState.notesHierarchy;
+    if (!hierarchy) return 'snippet';
+
+    // Check people
+    if (hierarchy.people.some(p => p.name === name)) return 'person';
+
+    // Check projects
+    if (hierarchy.projects.some(p => p.name === name)) return 'project';
+
+    // Check abbreviations
+    for (const category in hierarchy.abbreviations) {
+        if (hierarchy.abbreviations[category].some(a => a.name === name)) {
+            return 'abbreviation';
+        }
+    }
+
+    // Default to snippet
+    return 'snippet';
+}
+
+// Get icon for type
+function getIconForType(type) {
+    const icons = {
+        person: '👤',
+        snippet: '📝',
+        project: '📁',
+        abbreviation: '🔤'
+    };
+    return icons[type] || '📄';
+}
+
+// Remove favourite
+async function removeFavourite(name) {
+    if (!favouritesState.selectedProject) return;
+
+    try {
+        const response = await fetch(
+            `${API_BASE}/project/${encodeURIComponent(favouritesState.selectedProject)}/favourites/${encodeURIComponent(name)}`,
+            { method: 'DELETE' }
+        );
+
+        if (!response.ok) throw new Error('Failed to remove favourite');
+
+        // Update local state
+        favouritesState.currentFavourites = favouritesState.currentFavourites.filter(f => f !== name);
+        renderFavouritesList();
+        renderNotesTree(); // Update checkboxes
+    } catch (error) {
+        console.error('Error removing favourite:', error);
+        alert('Failed to remove favourite: ' + error.message);
+    }
+}
+
+// Add favourite
+async function addFavourite(name) {
+    if (!favouritesState.selectedProject) {
+        alert('Please select a project first');
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${API_BASE}/project/${encodeURIComponent(favouritesState.selectedProject)}/favourites/add`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ favourite: name })
+            }
+        );
+
+        if (!response.ok) throw new Error('Failed to add favourite');
+
+        // Update local state
+        if (!favouritesState.currentFavourites.includes(name)) {
+            favouritesState.currentFavourites.push(name);
+            renderFavouritesList();
+            renderNotesTree(); // Update checkboxes
+        }
+    } catch (error) {
+        console.error('Error adding favourite:', error);
+        alert('Failed to add favourite: ' + error.message);
+    }
+}
+
+// Render notes tree
+function renderNotesTree() {
+    const container = document.getElementById('notesTree');
+    const hierarchy = favouritesState.notesHierarchy;
+
+    if (!hierarchy) {
+        container.innerHTML = '<div class="loading">Loading notes...</div>';
+        return;
+    }
+
+    const searchQuery = favouritesState.searchQuery.toLowerCase();
+    let html = '';
+
+    // Helper to check if item matches search
+    const matchesSearch = (name) => {
+        return !searchQuery || name.toLowerCase().includes(searchQuery);
+    };
+
+    // Render people
+    const peopleItems = hierarchy.people.filter(p => matchesSearch(p.name));
+    if (peopleItems.length > 0) {
+        html += renderCategory('People', '👤', peopleItems, 'person');
+    }
+
+    // Render snippets
+    const snippetItems = hierarchy.snippets.filter(s => matchesSearch(s.name));
+    if (snippetItems.length > 0) {
+        html += renderCategory('Snippets', '📝', snippetItems, 'snippet');
+    }
+
+    // Render projects
+    const projectItems = hierarchy.projects.filter(p => matchesSearch(p.name));
+    if (projectItems.length > 0) {
+        html += renderCategory('Projects', '📁', projectItems, 'project');
+    }
+
+    // Render abbreviations (grouped by category)
+    let abbrHtml = '';
+    for (const category in hierarchy.abbreviations) {
+        const items = hierarchy.abbreviations[category].filter(a => matchesSearch(a.name));
+        if (items.length > 0) {
+            abbrHtml += renderSubcategory(category, items, 'abbreviation');
+        }
+    }
+    if (abbrHtml) {
+        html += `
+            <div class="note-category">
+                <div class="category-header" onclick="toggleCategory(this)">
+                    <span class="arrow">▼</span>
+                    <span>🔤 Abbreviations</span>
+                </div>
+                <div class="category-items">
+                    ${abbrHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html || '<div class="empty-state">No notes found</div>';
+}
+
+// Render category
+function renderCategory(title, icon, items, type) {
+    const itemsHtml = items.map(item => renderNoteItem(item.name, type)).join('');
+
+    return `
+        <div class="note-category">
+            <div class="category-header" onclick="toggleCategory(this)">
+                <span class="arrow">▼</span>
+                <span>${icon} ${title}</span>
+            </div>
+            <div class="category-items">
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Render subcategory (for abbreviations)
+function renderSubcategory(title, items, type) {
+    const itemsHtml = items.map(item => renderNoteItem(item.name, type)).join('');
+
+    return `
+        <div class="note-category" style="margin-left: 12px;">
+            <div class="category-header" onclick="toggleCategory(this)" style="font-size: 13px;">
+                <span class="arrow">▼</span>
+                <span>${title}</span>
+            </div>
+            <div class="category-items">
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Render note item
+function renderNoteItem(name, type) {
+    const isFavourite = favouritesState.currentFavourites.includes(name);
+    const checked = isFavourite ? 'checked' : '';
+    const favouriteClass = isFavourite ? 'is-favourite' : '';
+    const star = isFavourite ? '<span class="star-icon">★</span>' : '';
+
+    return `
+        <div class="note-item ${favouriteClass}">
+            <input
+                type="checkbox"
+                ${checked}
+                onchange="handleNoteToggle('${escapeHtml(name)}')"
+                ${!favouritesState.selectedProject ? 'disabled' : ''}
+            />
+            <span class="type-${type}">${escapeHtml(name)}</span>
+            ${star}
+        </div>
+    `;
+}
+
+// Toggle category expansion
+function toggleCategory(headerElement) {
+    headerElement.classList.toggle('collapsed');
+    const items = headerElement.nextElementSibling;
+    items.classList.toggle('hidden');
+}
+
+// Handle note checkbox toggle
+async function handleNoteToggle(name) {
+    if (!favouritesState.selectedProject) return;
+
+    const isFavourite = favouritesState.currentFavourites.includes(name);
+
+    if (isFavourite) {
+        await removeFavourite(name);
+    } else {
+        await addFavourite(name);
+    }
+}
+
+// Handle notes search
+function handleNotesSearch(event) {
+    favouritesState.searchQuery = event.target.value;
+    renderNotesTree();
+}
+
+// ============================================================================
+// CONTEXT DETECTION
+// ============================================================================
+
+let contextDetectionInterval = null;
+
+// Start context detection
+async function startContextDetection() {
+    try {
+        // Start polling on backend
+        const response = await fetch(`${API_BASE}/context/start-polling?interval=3.0`, {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            console.log('🔍 Context detection started');
+
+            // Poll current context every 3 seconds
+            contextDetectionInterval = setInterval(async () => {
+                await checkCurrentContext();
+            }, 3000);
+        }
+    } catch (error) {
+        console.error('Failed to start context detection:', error);
+    }
+}
+
+// Check current detected context
+async function checkCurrentContext() {
+    try {
+        const response = await fetch(`${API_BASE}/context/current`);
+
+        if (response.ok) {
+            const data = await response.json();
+
+            if (data.project && data.project !== favouritesState.selectedProject) {
+                // Context changed! Auto-select project
+                console.log(`🎯 Auto-selecting project: ${data.project} (confidence: ${data.confidence.toFixed(2)})`);
+                await autoSelectProject(data.project);
+            }
+        }
+    } catch (error) {
+        // Silent fail - context detection is optional
+    }
+}
+
+// Auto-select project based on context detection
+async function autoSelectProject(projectName) {
+    const projectSelect = document.getElementById('projectSelect');
+
+    // Check if project exists in dropdown
+    const option = Array.from(projectSelect.options).find(
+        opt => opt.value === projectName
+    );
+
+    if (option) {
+        // Auto-open favourites pane if not already open
+        if (!favouritesState.isOpen) {
+            toggleFavouritesPane();
+        }
+
+        // Select the project
+        projectSelect.value = projectName;
+        favouritesState.selectedProject = projectName;
+        saveFavouritesState();
+
+        // Add to context history (auto-detected)
+        addToContextHistory(projectName, false);
+
+        // Load favourites
+        await loadProjectFavourites(projectName);
+
+        // Visual feedback
+        projectSelect.style.animation = 'pulse 0.5s ease-in-out';
+        setTimeout(() => {
+            projectSelect.style.animation = '';
+        }, 500);
+    }
+}
+
+// Stop context detection (cleanup)
+async function stopContextDetection() {
+    if (contextDetectionInterval) {
+        clearInterval(contextDetectionInterval);
+        contextDetectionInterval = null;
+    }
+
+    try {
+        await fetch(`${API_BASE}/context/stop-polling`, {
+            method: 'POST'
+        });
+        console.log('🔍 Context detection stopped');
+    } catch (error) {
+        console.error('Failed to stop context detection:', error);
+    }
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    stopContextDetection();
+});
+
+// ============================================================================
+// CONTEXT HISTORY & NAVIGATION
+// ============================================================================
+
+// Add project to context history
+function addToContextHistory(projectName, isNavigating = false) {
+    if (!projectName) return;
+
+    // Skip if we're navigating through history
+    if (isNavigating) return;
+
+    // If we're not at the end of history, truncate forward items
+    if (contextHistory.currentIndex < contextHistory.items.length - 1) {
+        contextHistory.items = contextHistory.items.slice(0, contextHistory.currentIndex + 1);
+    }
+
+    // Add new item (avoid duplicates of the last item)
+    if (contextHistory.items[contextHistory.items.length - 1] !== projectName) {
+        contextHistory.items.push(projectName);
+
+        // Keep only last 10 items
+        if (contextHistory.items.length > contextHistory.maxSize) {
+            contextHistory.items.shift();
+        }
+
+        contextHistory.currentIndex = contextHistory.items.length - 1;
+    }
+
+    updateNavigationButtons();
+}
+
+// Navigate back in history
+function navigateBack() {
+    if (contextHistory.currentIndex > 0) {
+        contextHistory.currentIndex--;
+        const projectName = contextHistory.items[contextHistory.currentIndex];
+        selectProjectFromHistory(projectName);
+        updateNavigationButtons();
+    }
+}
+
+// Navigate forward in history
+function navigateForward() {
+    if (contextHistory.currentIndex < contextHistory.items.length - 1) {
+        contextHistory.currentIndex++;
+        const projectName = contextHistory.items[contextHistory.currentIndex];
+        selectProjectFromHistory(projectName);
+        updateNavigationButtons();
+    }
+}
+
+// Select project from history (without adding to history again)
+async function selectProjectFromHistory(projectName) {
+    const projectSelect = document.getElementById('projectSelect');
+
+    // Auto-open favourites pane if not already open
+    if (!favouritesState.isOpen) {
+        toggleFavouritesPane();
+    }
+
+    // Select the project
+    projectSelect.value = projectName;
+    favouritesState.selectedProject = projectName;
+    saveFavouritesState();
+
+    // Load favourites
+    await loadProjectFavourites(projectName);
+}
+
+// Update navigation button states
+function updateNavigationButtons() {
+    const backBtn = document.getElementById('contextBackBtn');
+    const forwardBtn = document.getElementById('contextForwardBtn');
+
+    if (backBtn) {
+        backBtn.disabled = contextHistory.currentIndex <= 0;
+    }
+
+    if (forwardBtn) {
+        forwardBtn.disabled = contextHistory.currentIndex >= contextHistory.items.length - 1;
+    }
+}
+
+// Setup navigation button event listeners
+function setupContextNavigation() {
+    const backBtn = document.getElementById('contextBackBtn');
+    const forwardBtn = document.getElementById('contextForwardBtn');
+
+    if (backBtn) {
+        backBtn.addEventListener('click', navigateBack);
+    }
+
+    if (forwardBtn) {
+        forwardBtn.addEventListener('click', navigateForward);
+    }
+
+    // Initialize button states
+    updateNavigationButtons();
+}
+
+// Use project as context (from analyzer pane)
+async function useAsContext(projectName) {
+    // Auto-open favourites pane if not already open
+    if (!favouritesState.isOpen) {
+        toggleFavouritesPane();
+    }
+
+    // Select the project
+    const projectSelect = document.getElementById('projectSelect');
+    projectSelect.value = projectName;
+
+    // Add to history
+    addToContextHistory(projectName, false);
+
+    // Update state
+    favouritesState.selectedProject = projectName;
+    saveFavouritesState();
+
+    // Load favourites
+    await loadProjectFavourites(projectName);
+
+    // Visual feedback
+    projectSelect.style.animation = 'pulse 0.5s ease-in-out';
+    setTimeout(() => {
+        projectSelect.style.animation = '';
+    }, 500);
+
+    console.log(`📌 Manually selected context: ${projectName}`);
+}
+
+// ========================================
+// DETECTOR INSPECTOR PANE
+// ========================================
+
+// Detector state
+let detectorState = {
+    isOpen: false,
+    autoRefresh: true,
+    refreshInterval: 3000,
+    pollingTimer: null
+};
+
+// Load detector state from localStorage
+function loadDetectorState() {
+    const saved = localStorage.getItem('detectorState');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        detectorState = { ...detectorState, ...parsed };
+        // Don't restore polling timer
+        detectorState.pollingTimer = null;
+    }
+}
+
+// Save detector state to localStorage
+function saveDetectorState() {
+    localStorage.setItem('detectorState', JSON.stringify({
+        isOpen: detectorState.isOpen,
+        autoRefresh: detectorState.autoRefresh,
+        refreshInterval: detectorState.refreshInterval
+    }));
+}
+
+// Toggle detector pane visibility
+function toggleDetectorPane() {
+    const container = document.querySelector('.container');
+    const pane = document.getElementById('detectorPane');
+    const toggleBtn = document.getElementById('toggleDetectors');
+
+    detectorState.isOpen = !detectorState.isOpen;
+
+    if (detectorState.isOpen) {
+        container.classList.add('fourth-pane-open');
+        pane.classList.add('visible');
+        toggleBtn.textContent = '✕';
+
+        // Start polling if auto-refresh is enabled
+        if (detectorState.autoRefresh) {
+            startDetectorPolling();
+        } else {
+            // Just fetch once
+            fetchAllDetectors();
+        }
+    } else {
+        container.classList.remove('fourth-pane-open');
+        pane.classList.remove('visible');
+        toggleBtn.textContent = '🔍';
+
+        // Stop polling
+        stopDetectorPolling();
+    }
+
+    saveDetectorState();
+}
+
+// Fetch all detector data
+async function fetchAllDetectors() {
+    try {
+        const response = await fetch(`${API_BASE}/context/detectors/all`);
+        const data = await response.json();
+
+        displayDetectorData(data.detectors);
+    } catch (error) {
+        console.error('Failed to fetch detector data:', error);
+        const content = document.getElementById('detectorContent');
+        content.innerHTML = `
+            <div class="detector-empty">
+                ⚠️ Failed to load detector data<br/>
+                <small>${error.message}</small>
+            </div>
+        `;
+    }
+}
+
+// Display detector data in cards
+function displayDetectorData(detectors) {
+    const content = document.getElementById('detectorContent');
+
+    if (!detectors || detectors.length === 0) {
+        content.innerHTML = '<div class="detector-empty">No detectors available</div>';
+        return;
+    }
+
+    let html = '';
+
+    for (const detector of detectors) {
+        const availableClass = detector.available ? 'available' : 'unavailable';
+        const statusClass = detector.available ? 'available' : 'unavailable';
+        const statusIcon = detector.available ? '🟢' : '🔴';
+
+        // Format the detector name nicely
+        const displayName = detector.name
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+
+        // Prepare raw data for display
+        let rawDataHtml = '<div class="detector-empty">No data available</div>';
+
+        if (detector.raw_context) {
+            const formatted = JSON.stringify(detector.raw_context, null, 2);
+            rawDataHtml = `<pre>${escapeHtml(formatted)}</pre>`;
+        } else if (!detector.available) {
+            rawDataHtml = '<div class="detector-empty">Detector not available on this system</div>';
+        }
+
+        // Last result info
+        let lastResultHtml = '';
+        if (detector.last_result && detector.last_result.project_name) {
+            lastResultHtml = `
+                <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border-radius: 4px; font-size: 12px;">
+                    <strong>Last Match:</strong> ${escapeHtml(detector.last_result.project_name)}<br/>
+                    <strong>Confidence:</strong> ${(detector.last_result.confidence * 100).toFixed(0)}%<br/>
+                    <strong>Source:</strong> ${escapeHtml(detector.last_result.source)}
+                </div>
+            `;
+        }
+
+        html += `
+            <div class="detector-card ${availableClass}">
+                <div class="detector-card-header">
+                    <div class="detector-card-title">
+                        <div class="detector-status ${statusClass}"></div>
+                        <span>${statusIcon} ${escapeHtml(displayName)}</span>
+                    </div>
+                    <button class="detector-refresh-btn" onclick="refreshSingleDetector('${escapeHtml(detector.name)}')" title="Refresh this detector">
+                        🔄
+                    </button>
+                </div>
+                <div class="detector-data">
+                    ${rawDataHtml}
+                </div>
+                ${lastResultHtml}
+                <div class="detector-timestamp">
+                    Updated: ${new Date(detector.timestamp).toLocaleTimeString()}
+                </div>
+            </div>
+        `;
+    }
+
+    content.innerHTML = html;
+}
+
+// Start polling for detector data
+function startDetectorPolling() {
+    // Clear any existing timer
+    stopDetectorPolling();
+
+    // Fetch immediately
+    fetchAllDetectors();
+
+    // Set up interval
+    detectorState.pollingTimer = setInterval(() => {
+        fetchAllDetectors();
+    }, detectorState.refreshInterval);
+
+    console.log(`🔄 Detector polling started (${detectorState.refreshInterval}ms interval)`);
+}
+
+// Stop polling
+function stopDetectorPolling() {
+    if (detectorState.pollingTimer) {
+        clearInterval(detectorState.pollingTimer);
+        detectorState.pollingTimer = null;
+        console.log('⏸️ Detector polling stopped');
+    }
+}
+
+// Refresh single detector (future enhancement - for now just refresh all)
+function refreshSingleDetector(detectorName) {
+    console.log(`🔄 Refreshing detector: ${detectorName}`);
+    fetchAllDetectors();
+}
+
+// Initialize detector inspector
+document.addEventListener('DOMContentLoaded', () => {
+    // Load saved state
+    loadDetectorState();
+
+    // Set up toggle button
+    const toggleBtn = document.getElementById('toggleDetectors');
+    toggleBtn.addEventListener('click', toggleDetectorPane);
+
+    // Set up auto-refresh checkbox
+    const autoRefreshCheckbox = document.getElementById('autoRefreshDetectors');
+    autoRefreshCheckbox.checked = detectorState.autoRefresh;
+    autoRefreshCheckbox.addEventListener('change', (e) => {
+        detectorState.autoRefresh = e.target.checked;
+        saveDetectorState();
+
+        if (detectorState.isOpen) {
+            if (detectorState.autoRefresh) {
+                startDetectorPolling();
+            } else {
+                stopDetectorPolling();
+            }
+        }
+    });
+
+    // Set up refresh interval selector
+    const intervalSelect = document.getElementById('refreshInterval');
+    intervalSelect.value = detectorState.refreshInterval;
+    intervalSelect.addEventListener('change', (e) => {
+        detectorState.refreshInterval = parseInt(e.target.value);
+        saveDetectorState();
+
+        // Restart polling with new interval
+        if (detectorState.isOpen && detectorState.autoRefresh) {
+            startDetectorPolling();
+        }
+    });
+
+    // Set up manual refresh button
+    const refreshAllBtn = document.getElementById('refreshAllDetectors');
+    refreshAllBtn.addEventListener('click', () => {
+        console.log('🔄 Manual refresh triggered');
+        fetchAllDetectors();
+    });
+
+    // Restore pane state
+    if (detectorState.isOpen) {
+        toggleDetectorPane();
+    }
+});
+
+// ========================================
+// SPLIT PANE & PROJECT CONTENT
+// ========================================
+
+// Split pane state
+let splitPaneState = {
+    isDragging: false,
+    topHeight: 50, // percentage
+    initialized: false // Track if already initialized
+};
+
+// Load split pane state
+function loadSplitPaneState() {
+    const saved = localStorage.getItem('splitPaneState');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        splitPaneState = { ...splitPaneState, ...parsed };
+    }
+    // Always apply height (uses default 50% if not saved)
+    applySplitPaneHeight();
+}
+
+// Save split pane state
+function saveSplitPaneState() {
+    localStorage.setItem('splitPaneState', JSON.stringify({
+        topHeight: splitPaneState.topHeight
+    }));
+}
+
+// Apply split pane height
+function applySplitPaneHeight() {
+    const topPane = document.querySelector('.split-pane-top');
+    const bottomPane = document.querySelector('.split-pane-bottom');
+
+    if (topPane && bottomPane) {
+        topPane.style.flex = `0 0 ${splitPaneState.topHeight}%`;
+        bottomPane.style.flex = `0 0 ${100 - splitPaneState.topHeight}%`;
+        console.log(`✓ Applied split pane height: ${splitPaneState.topHeight}% / ${100 - splitPaneState.topHeight}%`);
+    } else {
+        console.error('❌ Split pane elements not found!', { topPane: !!topPane, bottomPane: !!bottomPane });
+    }
+}
+
+// Initialize split pane
+function initializeSplitPane() {
+    // Always load and apply state
+    loadSplitPaneState();
+
+    // Only set up event listeners once
+    if (splitPaneState.initialized) {
+        console.log('✓ Split pane already initialized, just applying height');
+        return;
+    }
+
+    const divider = document.getElementById('splitDivider');
+    const container = document.querySelector('.split-pane-container');
+
+    if (!divider || !container) {
+        console.warn('⚠️ Split pane elements not ready yet');
+        return;
+    }
+
+    divider.addEventListener('mousedown', (e) => {
+        splitPaneState.isDragging = true;
+        document.body.style.cursor = 'ns-resize';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!splitPaneState.isDragging) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const relativeY = e.clientY - containerRect.top;
+        const percentage = (relativeY / containerRect.height) * 100;
+
+        // Clamp between 20% and 80%
+        splitPaneState.topHeight = Math.max(20, Math.min(80, percentage));
+        applySplitPaneHeight();
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (splitPaneState.isDragging) {
+            splitPaneState.isDragging = false;
+            document.body.style.cursor = '';
+            saveSplitPaneState();
+        }
+    });
+
+    splitPaneState.initialized = true;
+    console.log('✓ Split pane initialized successfully');
+}
+
+// Current project content state
+let projectContentState = {
+    currentProject: null,
+    originalContent: null,
+    isEditing: false
+};
+
+// Load project content
+async function loadProjectContent(projectName) {
+    if (!projectName) {
+        // Clear display
+        document.getElementById('projectContentDisplay').innerHTML = '<div class="empty-content">Select a project to view its content</div>';
+        projectContentState.currentProject = null;
+        projectContentState.originalContent = null;
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/project/${encodeURIComponent(projectName)}/content`);
+        const data = await response.json();
+
+        projectContentState.currentProject = projectName;
+        projectContentState.originalContent = data.content;
+
+        // Display content
+        displayProjectContent(data.content);
+
+        console.log(`📄 Loaded project content for: ${projectName}`);
+    } catch (error) {
+        console.error('Failed to load project content:', error);
+        document.getElementById('projectContentDisplay').innerHTML = '<div class="empty-content">⚠️ Failed to load project content</div>';
+    }
+}
+
+// Display project content
+function displayProjectContent(content) {
+    const display = document.getElementById('projectContentDisplay');
+
+    if (!display) {
+        console.error('❌ projectContentDisplay element not found!');
+        return;
+    }
+
+    if (!content || content.trim() === '') {
+        display.innerHTML = '<div class="empty-content">Project file is empty</div>';
+    } else {
+        // Display as plain text (could add markdown rendering here)
+        display.textContent = content;
+        console.log(`✓ Displayed ${content.length} characters of project content`);
+    }
+}
+
+// Enter edit mode
+function enterEditMode() {
+    if (!projectContentState.currentProject) {
+        return;
+    }
+
+    projectContentState.isEditing = true;
+
+    // Hide display, show edit
+    document.getElementById('projectContentDisplay').style.display = 'none';
+    document.getElementById('projectContentEdit').style.display = 'flex';
+
+    // Load content into textarea
+    const textarea = document.getElementById('projectContentTextarea');
+    textarea.value = projectContentState.originalContent || '';
+
+    // Focus textarea
+    textarea.focus();
+
+    console.log(`✏️ Entered edit mode for: ${projectContentState.currentProject}`);
+}
+
+// Cancel edit mode
+function cancelEditMode() {
+    projectContentState.isEditing = false;
+
+    // Show display, hide edit
+    document.getElementById('projectContentDisplay').style.display = 'flex';
+    document.getElementById('projectContentEdit').style.display = 'none';
+
+    console.log(`✕ Cancelled edit mode`);
+}
+
+// Save project content
+async function saveProjectContent() {
+    if (!projectContentState.currentProject) {
+        return;
+    }
+
+    const textarea = document.getElementById('projectContentTextarea');
+    const newContent = textarea.value;
+
+    try {
+        const response = await fetch(`${API_BASE}/project/${encodeURIComponent(projectContentState.currentProject)}/content`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                content: newContent
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            console.log(`💾 Saved project content for: ${projectContentState.currentProject}`);
+
+            // Update state
+            projectContentState.originalContent = newContent;
+
+            // Exit edit mode
+            cancelEditMode();
+
+            // Refresh display
+            displayProjectContent(newContent);
+
+            // Reload project data (this will refresh favourites and other data)
+            await loadProjectFavourites(projectContentState.currentProject);
+        } else {
+            console.error('Failed to save project content:', result);
+            alert('Failed to save project content');
+        }
+    } catch (error) {
+        console.error('Failed to save project content:', error);
+        alert('Failed to save project content: ' + error.message);
+    }
+}
+
+// Initialize project content functionality
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize split pane
+    initializeSplitPane();
+
+    // Edit button
+    const editBtn = document.getElementById('editProjectBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', enterEditMode);
+    }
+
+    // Save button
+    const saveBtn = document.getElementById('saveProjectBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveProjectContent);
+    }
+
+    // Cancel button
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', cancelEditMode);
+    }
+
+    // Also handle keyboard shortcuts in edit mode
+    const textarea = document.getElementById('projectContentTextarea');
+    if (textarea) {
+        textarea.addEventListener('keydown', (e) => {
+            // Ctrl+S or Cmd+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveProjectContent();
+            }
+            // Escape to cancel
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEditMode();
+            }
+        });
+    }
+});

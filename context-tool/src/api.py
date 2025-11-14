@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import sqlite3
 from pathlib import Path
+from datetime import datetime
 
 from .database import get_database
 from .data_loaders import load_data
@@ -14,6 +15,15 @@ from .pattern_matcher import PatternMatcher
 from .action_suggester import ActionSuggester
 from .context_analyzer import ContextAnalyzer
 from .saver import SmartSaver
+from .favourites_manager import FavouritesManager
+from .context_detection import ContextDetectionManager
+from .context_detection.detectors import (
+    WindowTitleDetector,
+    IdeProjectDetector,
+    WorkingDirectoryDetector,
+    GitRepoDetector,
+    ProcessDetector
+)
 
 # Optional import for semantic search
 try:
@@ -60,6 +70,8 @@ saver: Optional[SmartSaver] = None
 system_monitor: Optional[Any] = None
 app_data_dir: Optional[Path] = None
 app_use_markdown: bool = False
+favourites_manager: Optional[FavouritesManager] = None
+context_detector: Optional[ContextDetectionManager] = None
 
 
 # WebSocket connection manager
@@ -115,11 +127,25 @@ def initialize_app(
         enable_semantic: Whether to enable semantic search
         use_markdown: Whether to load markdown files instead of YAML
     """
-    global db, analyzer, saver, app_data_dir, app_use_markdown
+    global db, analyzer, saver, app_data_dir, app_use_markdown, favourites_manager, context_detector
 
     # Store global config
     app_data_dir = Path(data_dir)
     app_use_markdown = use_markdown
+
+    # Initialize favourites manager (for markdown mode)
+    if use_markdown:
+        favourites_manager = FavouritesManager(app_data_dir)
+        print(f"⭐ Favourites manager initialized")
+
+        # Initialize context detection manager
+        context_detector = ContextDetectionManager()
+        context_detector.add_detector(WindowTitleDetector(enabled=True))
+        context_detector.add_detector(IdeProjectDetector(enabled=True))
+        context_detector.add_detector(WorkingDirectoryDetector(enabled=True))
+        context_detector.add_detector(GitRepoDetector(enabled=True))
+        context_detector.add_detector(ProcessDetector(enabled=True))
+        print(f"🔍 Context detection initialized with 5 detectors")
 
     # Initialize database
     database = get_database(db_path)
@@ -543,6 +569,450 @@ async def save_smart(request: SaveSmartPerformRequest):
                 "status": "error",
                 "message": "Failed to save"
             }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Favourites endpoints
+@app.get("/api/notes/hierarchy")
+async def get_notes_hierarchy():
+    """
+    Get all notes organized hierarchically by type and category
+
+    Returns:
+        Hierarchical structure of all notes
+    """
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    try:
+        hierarchy = {
+            "people": [],
+            "snippets": [],
+            "projects": [],
+            "abbreviations": {}
+        }
+
+        # Get all people
+        cursor = db.execute("SELECT id, name, email, role FROM contacts ORDER BY name")
+        for row in cursor.fetchall():
+            hierarchy["people"].append({
+                "id": row["id"],
+                "name": row["name"],
+                "email": row["email"],
+                "role": row["role"],
+                "type": "person"
+            })
+
+        # Get all snippets
+        cursor = db.execute("SELECT id, text, saved_date, metadata FROM snippets ORDER BY saved_date DESC")
+        for row in cursor.fetchall():
+            import json
+            metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+            title = metadata.get("title", f"Snippet {row['id']}")
+            hierarchy["snippets"].append({
+                "id": row["id"],
+                "name": title,
+                "date": row["saved_date"],
+                "type": "snippet"
+            })
+
+        # Get all projects
+        cursor = db.execute("SELECT id, name, status FROM projects ORDER BY name")
+        for row in cursor.fetchall():
+            hierarchy["projects"].append({
+                "id": row["id"],
+                "name": row["name"],
+                "status": row["status"],
+                "type": "project"
+            })
+
+        # Get all abbreviations grouped by category
+        cursor = db.execute("SELECT id, abbr, full, category FROM abbreviations ORDER BY category, abbr")
+        for row in cursor.fetchall():
+            category = row["category"] or "General"
+            if category not in hierarchy["abbreviations"]:
+                hierarchy["abbreviations"][category] = []
+
+            hierarchy["abbreviations"][category].append({
+                "id": row["id"],
+                "name": row["abbr"],
+                "full": row["full"],
+                "category": category,
+                "type": "abbreviation"
+            })
+
+        return hierarchy
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/project/{project_name}/favourites")
+async def get_project_favourites(project_name: str):
+    """
+    Get favourites for a specific project
+
+    Args:
+        project_name: Name of the project
+
+    Returns:
+        List of favourite wikilinks
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Favourites only available in markdown mode")
+
+    try:
+        favourites = favourites_manager.parse_favourites(project_name)
+        return {
+            "project": project_name,
+            "favourites": favourites
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class UpdateFavouritesRequest(BaseModel):
+    favourites: List[str]
+
+
+@app.post("/api/project/{project_name}/favourites")
+async def update_project_favourites(project_name: str, request: UpdateFavouritesRequest):
+    """
+    Update favourites for a specific project
+
+    Args:
+        project_name: Name of the project
+        request: List of favourite wikilinks
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Favourites only available in markdown mode")
+
+    try:
+        success = favourites_manager.update_favourites(project_name, request.favourites)
+        if success:
+            return {
+                "status": "success",
+                "message": f"Updated favourites for {project_name}",
+                "favourites": request.favourites
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class AddFavouriteRequest(BaseModel):
+    favourite: str
+
+
+@app.post("/api/project/{project_name}/favourites/add")
+async def add_project_favourite(project_name: str, request: AddFavouriteRequest):
+    """
+    Add a single favourite to a project
+
+    Args:
+        project_name: Name of the project
+        request: Favourite wikilink to add
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Favourites only available in markdown mode")
+
+    try:
+        success = favourites_manager.add_favourite(project_name, request.favourite)
+        if success:
+            return {
+                "status": "success",
+                "message": f"Added favourite to {project_name}"
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/project/{project_name}/favourites/{favourite}")
+async def remove_project_favourite(project_name: str, favourite: str):
+    """
+    Remove a favourite from a project
+
+    Args:
+        project_name: Name of the project
+        favourite: Favourite wikilink to remove
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Favourites only available in markdown mode")
+
+    try:
+        success = favourites_manager.remove_favourite(project_name, favourite)
+        if success:
+            return {
+                "status": "success",
+                "message": f"Removed favourite from {project_name}"
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/project/{project_name}/content")
+async def get_project_content(project_name: str):
+    """
+    Get the full markdown content of a project file
+
+    Args:
+        project_name: Name of the project
+
+    Returns:
+        Full markdown content
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Project content only available in markdown mode")
+
+    try:
+        content = favourites_manager.get_project_content(project_name)
+        if content is not None:
+            return {
+                "project": project_name,
+                "content": content
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SaveProjectContentRequest(BaseModel):
+    content: str
+
+
+@app.put("/api/project/{project_name}/content")
+async def save_project_content(project_name: str, request: SaveProjectContentRequest):
+    """
+    Save the full markdown content to a project file
+
+    Args:
+        project_name: Name of the project
+        request: Content to save
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or favourites_manager is None:
+        raise HTTPException(status_code=400, detail="Project content only available in markdown mode")
+
+    try:
+        success = favourites_manager.save_project_content(project_name, request.content)
+        if success:
+            # Reload data after save
+            if db and app_data_dir:
+                load_data(db, app_data_dir, format='markdown')
+                print(f"✓ Reloaded data after project update")
+
+            return {
+                "status": "success",
+                "message": f"Saved project content for {project_name}"
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Project not found: {project_name}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Context detection endpoints
+@app.get("/api/context/detect")
+async def detect_context():
+    """
+    Detect current context once
+
+    Returns:
+        Detected project context or null
+    """
+    if not app_use_markdown or not context_detector or not favourites_manager:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        # Get project patterns
+        project_patterns = favourites_manager.get_all_project_patterns()
+
+        # Detect context
+        result = context_detector.detect_once(project_patterns)
+
+        if result and result.project_name:
+            return {
+                "project": result.project_name,
+                "confidence": result.confidence,
+                "source": result.source,
+                "raw_data": result.raw_data,
+                "timestamp": result.timestamp.isoformat()
+            }
+        else:
+            return {
+                "project": None,
+                "message": "No context detected"
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/context/current")
+async def get_current_context():
+    """
+    Get currently detected project context
+
+    Returns:
+        Current project context or null
+    """
+    if not app_use_markdown or not context_detector:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        current = context_detector.get_current_context()
+        last_detection = context_detector.get_last_detection()
+
+        if current and last_detection:
+            return {
+                "project": current,
+                "confidence": last_detection.confidence,
+                "source": last_detection.source,
+                "timestamp": last_detection.timestamp.isoformat()
+            }
+        else:
+            return {
+                "project": None
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/context/raw")
+async def get_raw_context():
+    """
+    Get raw context data from all detectors without pattern matching
+
+    Returns:
+        Raw context data from each detector
+    """
+    if not app_use_markdown or not context_detector:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        raw_contexts = context_detector.get_raw_contexts()
+        return raw_contexts
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/context/start-polling")
+async def start_context_polling(interval: float = 2.0):
+    """
+    Start periodic context detection
+
+    Args:
+        interval: Polling interval in seconds (default: 2.0)
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or not context_detector or not favourites_manager:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        # Get project patterns
+        project_patterns = favourites_manager.get_all_project_patterns()
+
+        # Start polling in background
+        import asyncio
+        asyncio.create_task(context_detector.start_polling(project_patterns, interval))
+
+        return {
+            "status": "started",
+            "interval": interval,
+            "message": f"Context detection started with {interval}s interval"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/context/stop-polling")
+async def stop_context_polling():
+    """
+    Stop periodic context detection
+
+    Returns:
+        Success status
+    """
+    if not app_use_markdown or not context_detector:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        await context_detector.stop_polling()
+
+        return {
+            "status": "stopped",
+            "message": "Context detection stopped"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/context/detectors/all")
+async def get_all_detectors_data():
+    """
+    Get raw data from all context detectors
+
+    Returns:
+        Dict with data from each detector including availability and raw context
+    """
+    if not app_use_markdown or not context_detector:
+        raise HTTPException(status_code=400, detail="Context detection only available in markdown mode")
+
+    try:
+        detectors_data = []
+
+        # Get all detectors
+        for detector in context_detector.detectors:
+            # Get raw context without pattern matching
+            raw_context = detector.get_raw_context()
+
+            # Get last detection result if available
+            last_result = None
+            if detector.last_result:
+                last_result = {
+                    "project_name": detector.last_result.project_name,
+                    "confidence": detector.last_result.confidence,
+                    "source": detector.last_result.source,
+                    "timestamp": detector.last_result.timestamp.isoformat()
+                }
+
+            detectors_data.append({
+                "name": detector.name,
+                "enabled": detector.enabled,
+                "available": detector.is_available(),
+                "raw_context": raw_context,
+                "last_result": last_result,
+                "timestamp": datetime.now().isoformat()
+            })
+
+        return {
+            "detectors": detectors_data,
+            "count": len(detectors_data)
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
