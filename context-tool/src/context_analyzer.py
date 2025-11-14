@@ -241,6 +241,7 @@ class ContextAnalyzer:
             List of dicts with {'name': str, 'exists': bool, 'contact_id': Optional[int]}
         """
         detected = []
+        seen_contact_ids = set()  # Track contact IDs we've already added
 
         # Extract all person names from text
         person_names = self._extract_person_names(text)
@@ -252,10 +253,17 @@ class ContextAnalyzer:
             if matches:
                 # Person exists - get best match
                 best_contact, score = matches[0]
+                contact_id = best_contact.get('id')
+
+                # Skip if we've already added this contact
+                if contact_id in seen_contact_ids:
+                    continue
+
+                seen_contact_ids.add(contact_id)
                 detected.append({
                     'name': person_name,
                     'exists': True,
-                    'contact_id': best_contact.get('id'),
+                    'contact_id': contact_id,
                     'contact_name': best_contact.get('name'),
                     'score': score
                 })
