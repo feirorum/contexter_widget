@@ -954,7 +954,8 @@ let favouritesState = {
     selectedProject: null,
     currentFavourites: [],
     notesHierarchy: null,
-    searchQuery: ''
+    searchQuery: '',
+    autoDetectContext: true // Auto-detection enabled by default
 };
 
 // Context history management
@@ -995,6 +996,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadProjectFavourites(favouritesState.selectedProject);
     }
 
+    // Set up auto-detect context checkbox
+    const autoDetectCheckbox = document.getElementById('autoDetectContext');
+    if (autoDetectCheckbox) {
+        autoDetectCheckbox.checked = favouritesState.autoDetectContext;
+        autoDetectCheckbox.addEventListener('change', (e) => {
+            favouritesState.autoDetectContext = e.target.checked;
+            saveFavouritesState();
+            console.log(`🤖 Auto-detect context: ${e.target.checked ? 'enabled' : 'disabled'}`);
+        });
+    }
+
     // Set up context navigation buttons
     setupContextNavigation();
 
@@ -1010,6 +1022,7 @@ function loadFavouritesState() {
             const state = JSON.parse(saved);
             favouritesState.isOpen = state.isOpen || false;
             favouritesState.selectedProject = state.selectedProject || null;
+            favouritesState.autoDetectContext = state.autoDetectContext !== undefined ? state.autoDetectContext : true;
         } catch (e) {
             console.error('Failed to load favourites state:', e);
         }
@@ -1020,7 +1033,8 @@ function loadFavouritesState() {
 function saveFavouritesState() {
     localStorage.setItem('favouritesState', JSON.stringify({
         isOpen: favouritesState.isOpen,
-        selectedProject: favouritesState.selectedProject
+        selectedProject: favouritesState.selectedProject,
+        autoDetectContext: favouritesState.autoDetectContext
     }));
 }
 
@@ -1095,6 +1109,17 @@ async function loadNotesHierarchy() {
 async function handleProjectChange(event) {
     const projectName = event.target.value;
     favouritesState.selectedProject = projectName;
+
+    // Disable auto-detection on manual selection
+    if (projectName) {
+        favouritesState.autoDetectContext = false;
+        const autoDetectCheckbox = document.getElementById('autoDetectContext');
+        if (autoDetectCheckbox) {
+            autoDetectCheckbox.checked = false;
+        }
+        console.log('🔧 Manual selection - auto-detect disabled');
+    }
+
     saveFavouritesState();
 
     // Add to context history
@@ -1418,7 +1443,8 @@ async function checkCurrentContext() {
         if (response.ok) {
             const data = await response.json();
 
-            if (data.project && data.project !== favouritesState.selectedProject) {
+            // Only auto-select if auto-detection is enabled
+            if (favouritesState.autoDetectContext && data.project && data.project !== favouritesState.selectedProject) {
                 // Context changed! Auto-select project
                 console.log(`🎯 Auto-selecting project: ${data.project} (confidence: ${data.confidence.toFixed(2)})`);
                 await autoSelectProject(data.project);
@@ -1596,6 +1622,13 @@ async function useAsContext(projectName) {
     const projectSelect = document.getElementById('projectSelect');
     projectSelect.value = projectName;
 
+    // Disable auto-detection on manual selection
+    favouritesState.autoDetectContext = false;
+    const autoDetectCheckbox = document.getElementById('autoDetectContext');
+    if (autoDetectCheckbox) {
+        autoDetectCheckbox.checked = false;
+    }
+
     // Add to history
     addToContextHistory(projectName, false);
 
@@ -1606,13 +1639,16 @@ async function useAsContext(projectName) {
     // Load favourites
     await loadProjectFavourites(projectName);
 
+    // Load project content
+    await loadProjectContent(projectName);
+
     // Visual feedback
     projectSelect.style.animation = 'pulse 0.5s ease-in-out';
     setTimeout(() => {
         projectSelect.style.animation = '';
     }, 500);
 
-    console.log(`📌 Manually selected context: ${projectName}`);
+    console.log(`📌 Manually selected context: ${projectName} - auto-detect disabled`);
 }
 
 // ========================================
