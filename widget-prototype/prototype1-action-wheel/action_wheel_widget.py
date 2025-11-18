@@ -13,6 +13,7 @@ import json
 from datetime import datetime
 import signal
 import sys
+import pyperclip
 
 
 class ActionWheelWidget:
@@ -24,8 +25,10 @@ class ActionWheelWidget:
         self.on_save_snippet = on_save_snippet
         self.current_data = None
         self.matches = []
+        self.actions_list = []  # Store configurable actions
         self.selected_match_index = 0
-        self.navigation_mode = 'wheel'  # 'wheel' or 'matches'
+        self.selected_action_index = 0  # For navigating through actions
+        self.navigation_mode = 'wheel'  # 'wheel', 'matches', or 'actions'
         self.selected_action = None  # Which wheel slice is selected
         self.detail_level = 0  # 0=collapsed, 1=expanded
 
@@ -177,6 +180,10 @@ class ActionWheelWidget:
         self.match_list_window_id = None
         # Will be populated dynamically
 
+        # Actions list area (left side) - for showing configurable actions
+        self.actions_list_frame = tk.Frame(self.canvas, bg='white', relief=tk.SOLID, bd=1)
+        self.actions_list_window_id = None
+
         # Info and close buttons
         info_btn = tk.Button(
             self.canvas,
@@ -217,7 +224,9 @@ class ActionWheelWidget:
         """Show the wheel with analysis results"""
         self.current_data = result
         self.matches = []
+        self.actions_list = result.get('actions', [])  # Store configurable actions
         self.selected_match_index = 0
+        self.selected_action_index = 0
         self.navigation_mode = 'wheel'
         self.selected_action = None
         self.detail_level = 0
@@ -287,6 +296,10 @@ class ActionWheelWidget:
             self.canvas.delete(self.match_list_window_id)
             self.match_list_window_id = None
 
+        if self.actions_list_window_id:
+            self.canvas.delete(self.actions_list_window_id)
+            self.actions_list_window_id = None
+
         if self.navigation_mode == 'wheel':
             # Show action slices around the hub
             self.render_action_slices(center)
@@ -298,6 +311,10 @@ class ActionWheelWidget:
             # If detail level > 0, show expanded details on right
             if self.detail_level > 0:
                 self.render_match_details(center)
+
+        elif self.navigation_mode == 'actions':
+            # Show actions list
+            self.render_actions_list_view(center)
 
     def render_action_slices(self, center):
         """Render the 4 action slices around the hub"""
@@ -480,6 +497,132 @@ class ActionWheelWidget:
             self.detail_text.insert('end', f"{value}\n\n", 'field_value')
             self.detail_text.tag_config('field_value', font=self.normal_font, foreground=self.colors['text'])
 
+    def render_actions_list_view(self, center):
+        """Render the list of configurable actions"""
+        # Clear previous actions list
+        for widget in self.actions_list_frame.winfo_children():
+            widget.destroy()
+
+        # Title
+        title_label = tk.Label(
+            self.actions_list_frame,
+            text=f"⚡ Actions ({len(self.actions_list)})",
+            font=self.title_font,
+            bg='white',
+            fg=self.colors['primary'],
+            pady=10
+        )
+        title_label.pack()
+
+        if not self.actions_list:
+            no_action_label = tk.Label(
+                self.actions_list_frame,
+                text="No actions available",
+                font=self.normal_font,
+                bg='white',
+                fg=self.colors['text_light'],
+                pady=20
+            )
+            no_action_label.pack()
+        else:
+            # Action items
+            for i, action in enumerate(self.actions_list):
+                is_selected = (i == self.selected_action_index)
+
+                action_frame = tk.Frame(
+                    self.actions_list_frame,
+                    bg=self.colors['primary'] if is_selected else 'white',
+                    relief=tk.FLAT,
+                    bd=0,
+                    cursor='hand2'
+                )
+                action_frame.pack(fill=tk.X, padx=10, pady=5)
+
+                # Icon
+                icon = self.map_action_icon(action.get('icon', ''))
+                label = action.get('label', 'Action')
+                action_type = action.get('type', 'url')
+
+                action_label = tk.Label(
+                    action_frame,
+                    text=f"{icon} {label}",
+                    font=self.action_font if is_selected else self.normal_font,
+                    bg=self.colors['primary'] if is_selected else 'white',
+                    fg='white' if is_selected else self.colors['text'],
+                    padx=15,
+                    pady=10,
+                    anchor=tk.W,
+                    cursor='hand2'
+                )
+                action_label.pack(fill=tk.X)
+
+                # Make clickable
+                def make_callback(idx):
+                    return lambda e: self.execute_selected_action(idx)
+
+                action_frame.bind('<Button-1>', make_callback(i))
+                action_label.bind('<Button-1>', make_callback(i))
+
+                # Type indicator
+                type_badge = "🔗" if action_type == 'url' else "📋" if action_type == 'copy' else "⚡"
+                type_label = tk.Label(
+                    action_frame,
+                    text=type_badge,
+                    font=self.small_font,
+                    bg=self.colors['primary'] if is_selected else 'white',
+                    fg='white' if is_selected else self.colors['text_light'],
+                    padx=5
+                )
+                type_label.pack(anchor=tk.W, padx=15, pady=(0, 8))
+
+        # Create canvas window and store ID
+        self.actions_list_window_id = self.canvas.create_window(180, center + 80, window=self.actions_list_frame)
+
+    def map_action_icon(self, icon_name: str) -> str:
+        """Map icon names to emoji"""
+        icon_map = {
+            'external-link': '🔗',
+            'clipboard': '📋',
+            'mail': '📧',
+            'phone': '📞',
+            'search': '🔍',
+            'user': '👤',
+            'calendar': '📅',
+            'book': '📚',
+            'folder': '📁'
+        }
+        return icon_map.get(icon_name, '⚡')
+
+    def execute_selected_action(self, action_index: int = None):
+        """Execute the currently selected action"""
+        if action_index is not None:
+            self.selected_action_index = action_index
+
+        if not self.actions_list or self.selected_action_index >= len(self.actions_list):
+            return
+
+        action = self.actions_list[self.selected_action_index]
+        action_type = action.get('type', 'url')
+        value = action.get('value', '')
+
+        try:
+            if action_type == 'url':
+                webbrowser.open(value)
+                self.show_message("✓ Opened")
+            elif action_type == 'copy':
+                try:
+                    pyperclip.copy(value)
+                    self.show_message("✓ Copied!")
+                except:
+                    self.root.clipboard_clear()
+                    self.root.clipboard_append(value)
+                    self.show_message("✓ Copied!")
+            else:
+                self.show_message("✓ Done")
+        except Exception as e:
+            print(f"Error executing action: {e}")
+            self.show_message("✗ Error")
+
     def navigate_left(self):
         """Navigate left in the wheel"""
         if self.navigation_mode == 'wheel':
@@ -521,12 +664,20 @@ class ActionWheelWidget:
             # Previous match
             self.selected_match_index = (self.selected_match_index - 1) % len(self.matches)
             self.render_wheel()
+        elif self.navigation_mode == 'actions' and self.actions_list:
+            # Previous action
+            self.selected_action_index = (self.selected_action_index - 1) % len(self.actions_list)
+            self.render_wheel()
 
     def navigate_down(self):
         """Navigate down"""
         if self.navigation_mode == 'matches' and self.matches:
             # Next match
             self.selected_match_index = (self.selected_match_index + 1) % len(self.matches)
+            self.render_wheel()
+        elif self.navigation_mode == 'actions' and self.actions_list:
+            # Next action
+            self.selected_action_index = (self.selected_action_index + 1) % len(self.actions_list)
             self.render_wheel()
 
     def select_action(self):
@@ -544,9 +695,12 @@ class ActionWheelWidget:
                 self.search_web()
             elif self.selected_action == 'actions':
                 self.show_actions_menu()
+        elif self.navigation_mode == 'actions':
+            # Execute the selected action
+            self.execute_selected_action()
 
     def go_back(self):
-        """Go back to wheel from matches"""
+        """Go back to wheel from matches or actions"""
         if self.navigation_mode == 'matches':
             if self.detail_level > 0:
                 # Collapse details first
@@ -557,6 +711,11 @@ class ActionWheelWidget:
                 self.navigation_mode = 'wheel'
                 self.selected_action = 'matches'
                 self.render_wheel()
+        elif self.navigation_mode == 'actions':
+            # Back to wheel
+            self.navigation_mode = 'wheel'
+            self.selected_action = 'actions'
+            self.render_wheel()
 
     def save_snippet(self):
         """Save current selection"""
@@ -577,13 +736,22 @@ class ActionWheelWidget:
                 webbrowser.open(f"https://www.google.com/search?q={query.replace(' ', '+')}")
 
     def show_actions_menu(self):
-        """Show additional actions"""
-        # Could expand to show copy, export, etc.
-        if self.current_data:
-            text = self.current_data.get('selected_text', '')
-            self.root.clipboard_clear()
-            self.root.clipboard_append(text)
-            self.show_message("Copied!")
+        """Show configurable actions list"""
+        if self.actions_list:
+            self.navigation_mode = 'actions'
+            self.selected_action_index = 0
+            self.render_wheel()
+        else:
+            # Fallback if no actions configured
+            if self.current_data:
+                text = self.current_data.get('selected_text', '')
+                try:
+                    pyperclip.copy(text)
+                    self.show_message("Copied!")
+                except:
+                    self.root.clipboard_clear()
+                    self.root.clipboard_append(text)
+                    self.show_message("Copied!")
 
     def show_message(self, text):
         """Show temporary message"""

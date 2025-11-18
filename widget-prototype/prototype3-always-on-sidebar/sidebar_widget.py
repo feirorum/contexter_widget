@@ -9,6 +9,8 @@ from typing import Dict, List, Any, Optional, Callable
 import json
 import signal
 import sys
+import webbrowser
+import pyperclip
 
 
 class SidebarWidget:
@@ -266,6 +268,11 @@ class SidebarWidget:
         for widget in self.results_frame.winfo_children():
             widget.destroy()
 
+        # Render actions section (if any actions available)
+        actions = result.get('actions', [])
+        if actions:
+            self.render_actions_section(actions)
+
         # Build results
         results = []
 
@@ -284,6 +291,226 @@ class SidebarWidget:
             self.set_expanded()
 
         self.root.deiconify()
+
+    def render_actions_section(self, actions: List[Dict]):
+        """Render actions section with primary and secondary actions"""
+        if not actions:
+            return
+
+        # Actions container
+        actions_outer = tk.Frame(self.results_frame, bg='#f0f0f0')
+        actions_outer.pack(fill=tk.X, pady=(0, 12))
+
+        actions_container = tk.Frame(actions_outer, bg=self.colors['accent'], relief=tk.FLAT)
+        actions_container.pack(fill=tk.X, padx=1, pady=1)
+
+        # Section header
+        header_frame = tk.Frame(actions_container, bg='white')
+        header_frame.pack(fill=tk.X, padx=12, pady=(10, 8))
+
+        tk.Label(
+            header_frame,
+            text="⚡ Quick Actions",
+            font=tkfont.Font(family="Segoe UI", size=11, weight="bold"),
+            bg='white',
+            fg=self.colors['text_primary']
+        ).pack(side=tk.LEFT)
+
+        # Separate pattern-specific and universal actions
+        pattern_actions = []
+        universal_actions = []
+
+        for action in actions:
+            # Universal actions usually have 'description' or come after pattern actions
+            if action.get('description') or len(pattern_actions) >= 5:
+                universal_actions.append(action)
+            else:
+                pattern_actions.append(action)
+
+        # Primary actions (pattern-specific, top 3)
+        primary_actions = pattern_actions[:3]
+        secondary_actions = pattern_actions[3:] + universal_actions
+
+        # Render primary actions as buttons
+        if primary_actions:
+            primary_frame = tk.Frame(actions_container, bg='white')
+            primary_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
+
+            for action in primary_actions:
+                self.render_action_button(primary_frame, action, primary=True)
+
+        # Render "More Actions..." expandable section
+        if secondary_actions:
+            self.render_more_actions(actions_container, secondary_actions)
+
+    def render_action_button(self, parent: tk.Frame, action: Dict, primary: bool = True):
+        """Render a single action button"""
+        action_type = action.get('type', 'url')
+        label = action.get('label', 'Action')
+        icon = self.map_icon(action.get('icon', ''))
+
+        # Choose style based on primary/secondary
+        if primary:
+            bg_color = self.colors['primary'] if action_type == 'url' else self.colors['secondary']
+            fg_color = 'white'
+            padx, pady = 14, 10
+            font_size = 11
+        else:
+            bg_color = '#f8f9fa'
+            fg_color = self.colors['text_primary']
+            padx, pady = 10, 6
+            font_size = 10
+
+        btn_frame = tk.Frame(parent, bg=bg_color, cursor='hand2')
+        btn_frame.pack(fill=tk.X, pady=2)
+
+        # Create button
+        btn = tk.Button(
+            btn_frame,
+            text=f"{icon} {label}",
+            bg=bg_color,
+            fg=fg_color,
+            relief=tk.FLAT,
+            font=tkfont.Font(family="Segoe UI", size=font_size),
+            cursor='hand2',
+            padx=padx,
+            pady=pady,
+            anchor=tk.W,
+            command=lambda: self.execute_action(action, btn_frame)
+        )
+        btn.pack(fill=tk.X)
+
+        # Hover effects
+        def on_enter(e):
+            if primary:
+                btn.config(bg=self.lighten_color(bg_color))
+            else:
+                btn_frame.config(bg='#e8e8e8')
+                btn.config(bg='#e8e8e8')
+
+        def on_leave(e):
+            btn_frame.config(bg=bg_color)
+            btn.config(bg=bg_color)
+
+        btn.bind('<Enter>', on_enter)
+        btn.bind('<Leave>', on_leave)
+
+    def render_more_actions(self, parent: tk.Frame, actions: List[Dict]):
+        """Render expandable 'More Actions' section"""
+        more_frame = tk.Frame(parent, bg='white')
+        more_frame.pack(fill=tk.X, padx=12, pady=(0, 10))
+
+        # State for expansion
+        expanded = {'value': False}
+        actions_list_frame = None
+
+        def toggle_expand():
+            expanded['value'] = not expanded['value']
+            if expanded['value']:
+                # Show actions
+                expand_btn.config(text="▼ Less Actions")
+                actions_list = tk.Frame(more_frame, bg='white')
+                actions_list.pack(fill=tk.X, pady=(4, 0))
+
+                for action in actions:
+                    self.render_action_button(actions_list, action, primary=False)
+
+                # Store reference to destroy later
+                toggle_expand.frame = actions_list
+            else:
+                # Hide actions
+                expand_btn.config(text="▶ More Actions...")
+                if hasattr(toggle_expand, 'frame'):
+                    toggle_expand.frame.destroy()
+
+        expand_btn = tk.Button(
+            more_frame,
+            text="▶ More Actions...",
+            bg='white',
+            fg=self.colors['text_secondary'],
+            relief=tk.FLAT,
+            font=self.small_font,
+            cursor='hand2',
+            command=toggle_expand,
+            anchor=tk.W
+        )
+        expand_btn.pack(fill=tk.X)
+
+    def execute_action(self, action: Dict, feedback_widget: tk.Widget):
+        """Execute an action and provide visual feedback"""
+        action_type = action.get('type', 'url')
+        value = action.get('value', '')
+
+        try:
+            if action_type == 'url':
+                # Open URL in browser
+                webbrowser.open(value)
+                self.show_feedback(feedback_widget, "✓ Opened")
+            elif action_type == 'copy':
+                # Copy to clipboard
+                pyperclip.copy(value)
+                self.show_feedback(feedback_widget, "✓ Copied!")
+            else:
+                # Generic action
+                print(f"Action: {action_type} - {value}")
+                self.show_feedback(feedback_widget, "✓ Done")
+        except Exception as e:
+            print(f"Error executing action: {e}")
+            self.show_feedback(feedback_widget, "✗ Error", error=True)
+
+    def show_feedback(self, widget: tk.Widget, message: str, error: bool = False):
+        """Show temporary feedback on a widget"""
+        original_bg = widget.cget('bg')
+        feedback_color = '#e74c3c' if error else '#27ae60'
+
+        # Flash background
+        widget.config(bg=feedback_color)
+
+        # Create temporary label
+        feedback_label = tk.Label(
+            widget,
+            text=message,
+            bg=feedback_color,
+            fg='white',
+            font=self.small_font
+        )
+        feedback_label.place(relx=1.0, rely=0.5, anchor=tk.E, x=-10)
+
+        # Restore after delay
+        def restore():
+            widget.config(bg=original_bg)
+            feedback_label.destroy()
+
+        self.root.after(1500, restore)
+
+    def map_icon(self, icon_name: str) -> str:
+        """Map icon names to emoji/unicode characters"""
+        icon_map = {
+            'external-link': '🔗',
+            'clipboard': '📋',
+            'mail': '📧',
+            'phone': '📞',
+            'search': '🔍',
+            'user': '👤',
+            'calendar': '📅',
+            'book': '📚',
+            'folder': '📁',
+            'link': '🔗'
+        }
+        return icon_map.get(icon_name, '⚡')
+
+    def lighten_color(self, hex_color: str) -> str:
+        """Lighten a hex color by 10%"""
+        # Simple lightening - add 20 to each RGB component
+        try:
+            hex_color = hex_color.lstrip('#')
+            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+            r = min(255, r + 20)
+            g = min(255, g + 20)
+            b = min(255, b + 20)
+            return f'#{r:02x}{g:02x}{b:02x}'
+        except:
+            return hex_color
 
     def render_result_card(self, result: Dict):
         """Render a result card - Modern Material Design style"""
