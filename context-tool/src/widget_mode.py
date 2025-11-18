@@ -40,7 +40,8 @@ class WidgetMode:
         enable_semantic: bool = False,
         poll_interval: float = 0.5,
         min_length: int = 3,
-        use_markdown: bool = False
+        use_markdown: bool = False,
+        actions_config_path: Optional[str] = None
     ):
         """
         Initialize widget mode
@@ -52,6 +53,7 @@ class WidgetMode:
             poll_interval: Clipboard polling interval in seconds
             min_length: Minimum text length to trigger analysis
             use_markdown: Use markdown files instead of YAML
+            actions_config_path: Path to actions configuration YAML file
         """
         self.data_dir = Path(data_dir)
         self.db_path = db_path
@@ -59,6 +61,7 @@ class WidgetMode:
         self.poll_interval = poll_interval
         self.min_length = min_length
         self.use_markdown = use_markdown
+        self.actions_config_path = actions_config_path
 
         # Components
         self.db = None
@@ -90,7 +93,7 @@ class WidgetMode:
 
         # Initialize components
         pattern_matcher = PatternMatcher()
-        action_suggester = ActionSuggester()
+        action_suggester = ActionSuggester(actions_config_path=self.actions_config_path)
 
         # Semantic searcher (optional)
         semantic_searcher = None
@@ -239,7 +242,8 @@ def run_widget_mode(
     enable_semantic: bool = False,
     poll_interval: float = 0.5,
     min_length: int = 3,
-    use_markdown: bool = False
+    use_markdown: bool = False,
+    actions_config_path: Optional[str] = None
 ):
     """
     Convenience function to run widget mode
@@ -251,6 +255,7 @@ def run_widget_mode(
         poll_interval: Clipboard polling interval in seconds
         min_length: Minimum text length to trigger analysis
         use_markdown: Use markdown files instead of YAML
+        actions_config_path: Path to actions configuration YAML file
     """
     mode = WidgetMode(
         data_dir=data_dir,
@@ -258,6 +263,7 @@ def run_widget_mode(
         enable_semantic=enable_semantic,
         poll_interval=poll_interval,
         min_length=min_length,
-        use_markdown=use_markdown
+        use_markdown=use_markdown,
+        actions_config_path=actions_config_path
     )
     mode.run()

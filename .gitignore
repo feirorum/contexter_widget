@@ -25,3 +25,4 @@ ENV/
 .idea/
 .vscode/
 *.log
+context-tool/data-md/.obsidian/

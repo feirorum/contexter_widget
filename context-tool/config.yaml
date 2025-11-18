@@ -9,6 +9,7 @@ database:
 data:
   directory: ./data
   auto_load: true
+  actions_config: ./data/actions.yaml  # Path to actions configuration file
 
 semantic_search:
   enabled: false

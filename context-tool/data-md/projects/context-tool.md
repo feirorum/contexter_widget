@@ -13,6 +13,10 @@ tech_stack:
   - FastAPI
   - SQLite
   - Tkinter
+window_patterns:
+  - ".*[Cc]ontext.*[Tt]ool.*"
+  - ".*contexter_widget.*"
+  - ".*/context-tool/.*"
 ---
 
 # Context Tool

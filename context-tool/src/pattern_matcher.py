@@ -9,6 +9,7 @@ class PatternMatcher:
 
     PATTERNS = {
         'jira_ticket': r'\b(JT-?\d+)\b',
+        'person_id': r'\bS\d{4}[A-Z]\b',  # Person ID format: S1234A
         'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
         'url': r'https?://[^\s]+',
         'phone': r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b',
@@ -47,7 +48,7 @@ class PatternMatcher:
             return None
 
         # Return most specific pattern found (priority order)
-        priority = ['jira_ticket', 'email', 'url', 'phone', 'date']
+        priority = ['jira_ticket', 'person_id', 'email', 'url', 'phone', 'date']
         for ptype in priority:
             if ptype in detections:
                 return ptype
