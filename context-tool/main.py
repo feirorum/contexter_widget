@@ -158,6 +158,9 @@ def main():
     port = config['ui']['port']
     mode = config['app']['mode']
 
+    # Get actions config path (with fallback to default)
+    actions_config_path = config.get('data', {}).get('actions_config', './data/actions.yaml')
+
     # Determine data format
     use_markdown = args.markdown
 
@@ -169,6 +172,7 @@ def main():
     print(f"📁 Data format: {'Markdown' if use_markdown else 'YAML'}")
     print(f"💾 Database: {db_path}")
     print(f"🔍 Semantic search: {'enabled' if enable_semantic else 'disabled'}")
+    print(f"⚡ Actions config: {actions_config_path}")
 
     # Initialize the application
     try:
@@ -176,7 +180,8 @@ def main():
             data_dir=data_dir,
             db_path=db_path,
             enable_semantic=enable_semantic,
-            use_markdown=use_markdown
+            use_markdown=use_markdown,
+            actions_config_path=actions_config_path
         )
     except Exception as e:
         print(f"Error initializing application: {e}")
@@ -197,7 +202,8 @@ def main():
             enable_semantic=enable_semantic,
             poll_interval=0.5,
             min_length=3,
-            use_markdown=use_markdown
+            use_markdown=use_markdown,
+            actions_config_path=actions_config_path
         )
         return 0
 

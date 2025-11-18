@@ -1,0 +1,161 @@
+# Action Configuration
+# Define actions that can be triggered based on detected patterns
+#
+# Actions can be:
+# 1. Pattern-based: Triggered when specific patterns are detected
+# 2. Universal: Available for all selected text
+#
+# Variables available in URLs:
+#   {text} - The selected text
+#   {match} - The matched pattern (for regex patterns)
+#   {match_N} - Capture group N from regex (e.g., {match_1}, {match_2})
+
+# Pattern-based actions
+# These are triggered when specific patterns are detected in the selected text
+pattern_actions:
+  # Jira tickets (JT-123, PROJ-456, etc.)
+  - pattern_type: jira_ticket
+    actions:
+      - label: "Open in Jira"
+        type: url
+        url: "https://jira.company.com/browse/{match}"
+        icon: external-link
+
+      - label: "Copy ticket ID"
+        type: copy
+        value: "{match}"
+        icon: clipboard
+
+      - label: "Search related tickets"
+        type: url
+        url: "https://jira.company.com/issues/?jql=text~\"{match}\""
+        icon: search
+
+  # Person ID in format S1234A (for AD lookup)
+  - pattern_type: person_id
+    # Regex pattern to match person IDs
+    pattern_regex: "S\\d{4}[A-Z]"
+    actions:
+      - label: "Lookup in AD"
+        type: url
+        url: "https://ad.company.com/lookup?id={match}"
+        icon: user
+
+      - label: "Copy person ID"
+        type: copy
+        value: "{match}"
+        icon: clipboard
+
+      - label: "Send email"
+        type: url
+        url: "mailto:{match}@company.com"
+        icon: mail
+
+  # GitHub issues (#123)
+  - pattern_type: github_issue
+    pattern_regex: "#(\\d+)"
+    actions:
+      - label: "View on GitHub"
+        type: url
+        url: "https://github.com/owner/repo/issues/{match_1}"
+        icon: external-link
+
+      - label: "Copy issue number"
+        type: copy
+        value: "#{match_1}"
+        icon: clipboard
+
+  # Email addresses
+  - pattern_type: email
+    actions:
+      - label: "Send email"
+        type: url
+        url: "mailto:{match}"
+        icon: mail
+
+      - label: "Copy email"
+        type: copy
+        value: "{match}"
+        icon: clipboard
+
+  # URLs
+  - pattern_type: url
+    actions:
+      - label: "Open URL"
+        type: url
+        url: "{match}"
+        icon: external-link
+
+      - label: "Copy URL"
+        type: copy
+        value: "{match}"
+        icon: clipboard
+
+  # Phone numbers
+  - pattern_type: phone
+    actions:
+      - label: "Call"
+        type: url
+        url: "tel:{match}"
+        icon: phone
+
+      - label: "Copy number"
+        type: copy
+        value: "{match}"
+        icon: clipboard
+
+# Universal actions
+# These are always available for any selected text
+universal_actions:
+  - label: "Search in System List Tool"
+    type: url
+    url: "https://listool.company.com/search?q={text}"
+    icon: search
+    description: "Search for this text in the system list tool"
+
+  - label: "Search in Documentation"
+    type: url
+    url: "https://docs.company.com/search?q={text}"
+    icon: book
+    description: "Search internal documentation"
+
+  - label: "Create Calendar Event"
+    type: url
+    url: "https://calendar.company.com/new?title={text}"
+    icon: calendar
+    description: "Create a calendar event with this text"
+
+# Database match-based actions
+# These are triggered when matches are found in the database
+database_actions:
+  # Actions for contact matches
+  contact:
+    - label: "Email {name}"
+      type: url
+      url: "mailto:{email}"
+      icon: mail
+      condition: "email"  # Only show if contact has email
+
+    - label: "View contact details"
+      type: action
+      value: "view_contact"
+      icon: user
+
+  # Actions for project matches
+  project:
+    - label: "View project notes"
+      type: action
+      value: "view_project"
+      icon: folder
+
+    - label: "Search project files"
+      type: url
+      url: "https://files.company.com/search?project={name}"
+      icon: search
+
+  # Actions for snippet matches
+  snippet:
+    - label: "Copy snippet"
+      type: copy
+      value: "{text}"
+      icon: clipboard

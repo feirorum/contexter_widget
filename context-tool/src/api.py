@@ -116,7 +116,8 @@ def initialize_app(
     data_dir: Path,
     db_path: str = ":memory:",
     enable_semantic: bool = True,
-    use_markdown: bool = False
+    use_markdown: bool = False,
+    actions_config_path: Optional[str] = None
 ):
     """
     Initialize the application with database and components
@@ -126,6 +127,7 @@ def initialize_app(
         db_path: Database path or ":memory:"
         enable_semantic: Whether to enable semantic search
         use_markdown: Whether to load markdown files instead of YAML
+        actions_config_path: Path to actions configuration YAML file
     """
     global db, analyzer, saver, app_data_dir, app_use_markdown, favourites_manager, context_detector
 
@@ -163,7 +165,7 @@ def initialize_app(
 
     # Initialize components
     pattern_matcher = PatternMatcher()
-    action_suggester = ActionSuggester()
+    action_suggester = ActionSuggester(actions_config_path=actions_config_path)
 
     # Initialize semantic searcher if enabled and available
     semantic_searcher = None
